@@ -22,6 +22,8 @@ type GraphViewProps = {
   onPersonSelect?: (person: PersonDetails) => void;
   onPersonLoading?: (personId: string) => void;
   hopDistance?: 0 | 1 | 2;
+  contextType?: string;
+  contextPerson?: string;
 };
 
 export default function GraphView({
@@ -30,6 +32,8 @@ export default function GraphView({
   onPersonSelect,
   onPersonLoading,
   hopDistance = 0,
+  contextType,
+  contextPerson,
 }: GraphViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const cyRef = useRef<Core | null>(null);
@@ -350,7 +354,9 @@ export default function GraphView({
         <span className="context-kicker">INVESTIGATION NETWORK</span>
         <strong>Connections &amp; relationships</strong>
         <small>
-          Select a person or finding to inspect the relevant network.
+          {contextType && contextPerson
+            ? `${contextType} around ${contextPerson}. Focused connections are highlighted.`
+            : "Select a person or finding to inspect the relevant network."}
         </small>
       </div>
 

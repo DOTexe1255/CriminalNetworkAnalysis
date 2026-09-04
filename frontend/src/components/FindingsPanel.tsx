@@ -4,140 +4,315 @@ import "./FindingsPanel.css";
 export type Finding = {
   id: string;
   finding_type: string;
-  title: string;
-  description: string;
-  importance: string;
+  title?: string;
+  description?: string;
+  importance?: string;
   person_id?: string;
   person_name?: string;
   evidence_count?: number;
   case_count?: number;
 };
 
+export function humanType(type: string): string {
+  const labels: Record<string, string> = {
+    "Bridge Entity": "Key Connection",
+    "Community Connector": "Links Separate Groups",
+    "Activity Spike": "Unusual Activity",
+    "Transaction Pattern": "Financial Activity",
+    "Cross-Case Connection": "Cross-Case Link",
+  };
+
+  return labels[type] ?? type;
+}
+
 const API = "http://localhost:8000";
 
-const typeLabel: Record<string, string> = {
-  "Bridge Entity": "Key Connection",
-  "Community Connector": "Links Separate Groups",
-  "Activity Spike": "Unusual Activity",
-  "Transaction Pattern": "Financial Activity",
-  "Cross-Case Connection": "Cross-Case Link",
+const FILTERS = [
+  "All",
+  "Bridge Entity",
+  "Community Connector",
+  "Activity Spike",
+  "Transaction Pattern",
+  "Cross-Case Connection",
+];
+
+type Props = {
+  selectedId?: string | null;
+  onSelect: (finding: Finding) => void;
 };
 
-const typeIcon: Record<string, string> = {
-  "Bridge Entity": "↔",
-  "Community Connector": "⌘",
-  "Activity Spike": "↗",
-  "Transaction Pattern": "₹",
-  "Cross-Case Connection": "⊕",
-};
+function getSeverity(importance?: string) {
+  const value = (importance ?? "").toLowerCase();
 
-export function humanType(type: string) {
-  return typeLabel[type] || type;
+  if (value === "critical" || value === "high") {
+    return "high";
+  }
+
+  if (value === "medium") {
+    return "medium";
+  }
+
+  return "review";
+}
+
+function getIcon(type: string) {
+  switch (type) {
+    case "Bridge Entity":
+      return "↔";
+
+    case "Community Connector":
+      return "⌘";
+
+    case "Activity Spike":
+      return "↗";
+
+    case "Transaction Pattern":
+      return "₹";
+
+    case "Cross-Case Connection":
+      return "⛓";
+
+    default:
+      return "•";
+  }
 }
 
 export default function FindingsPanel({
   selectedId,
   onSelect,
-}: {
-  selectedId?: string;
-  onSelect: (f: Finding) => void;
-}) {
+}: Props) {
   const [items, setItems] = useState<Finding[]>([]);
   const [filter, setFilter] = useState("All");
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
-    fetch(`${API}/api/findings`)
-      .then((r) => (r.ok ? r.json() : []))
-      .then((d) => {
-        const next = Array.isArray(d) ? d : d?.findings ?? [];
-        setItems(next);
-        if (next.length && !selectedId) onSelect(next[0]);
-      })
-      .catch(() => setItems([]))
-      .finally(() => setLoading(false));
-    // Initial selection is intentionally done only when the panel first loads.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
+    let cancelled = false;
+
+    async function loadFindings() {
+      setLoading(true);
+
+      try {
+        const response = await fetch(`${API}/api/findings`);
+
+        if (!response.ok) {
+          throw new Error(`HTTP ${response.status}`);
+        }
+
+        const data = await response.json();
+
+        const findings: Finding[] = Array.isArray(data)
+          ? data
+          : Array.isArray(data?.findings)
+            ? data.findings
+            : [];
+
+        if (!cancelled) {
+          setItems(findings);
+        }
+      } catch (error) {
+        console.error("Failed to load findings:", error);
+
+        if (!cancelled) {
+          setItems([]);
+        }
+      } finally {
+        if (!cancelled) {
+          setLoading(false);
+        }
+      }
+    }
+
+    loadFindings();
+
+    return () => {
+      cancelled = true;
+    };
   }, []);
 
-  const filters = [
-    "All",
-    "Bridge Entity",
-    "Transaction Pattern",
-    "Activity Spike",
-    "Cross-Case Connection",
-  ];
+  /*
+   * Defensive deduplication.
+   *
+   * If Neo4j returns the same Finding more than once,
+   * only one card is rendered.
+   */
+  const uniqueItems = useMemo(() => {
+    const map = new Map<string, Finding>();
 
-  const filtered = useMemo(
-    () => items.filter((f) => filter === "All" || f.finding_type === filter),
-    [items, filter]
-  );
+    items.forEach((finding) => {
+      if (!finding?.id) return;
 
-  const visible = filtered.slice(0, 8);
+      if (!map.has(finding.id)) {
+        map.set(finding.id, finding);
+      }
+    });
+
+    return Array.from(map.values());
+  }, [items]);
+
+  const filtered = useMemo(() => {
+    if (filter === "All") {
+      return uniqueItems;
+    }
+
+    return uniqueItems.filter(
+      (finding) => finding.finding_type === filter
+    );
+  }, [uniqueItems, filter]);
 
   return (
     <aside className="findings-panel">
       <div className="panel-heading">
         <div>
           <span className="eyebrow">INVESTIGATION LEADS</span>
+
           <h2>What needs attention</h2>
-          <p className="panel-subtitle">Trace found these relationships and patterns first.</p>
+
+          <p className="panel-subtitle">
+            Trace found these relationships and patterns first.
+          </p>
         </div>
-        <span className="finding-count">{items.length}</span>
+
+        <span className="finding-count">
+          {loading ? "—" : uniqueItems.length}
+        </span>
       </div>
 
+      {/* FILTERS */}
       <div className="finding-filters">
-        {filters.map((x) => (
-          <button
-            key={x}
-            className={filter === x ? "active" : ""}
-            onClick={() => setFilter(x)}
-          >
-            {x === "All" ? "ALL" : humanType(x).toUpperCase()}
-          </button>
-        ))}
-      </div>
+        {FILTERS.map((filterName) => {
+          const active = filter === filterName;
 
-      <div className="lead-hint">
-        <span>01</span>
-        <p>Select a lead to automatically focus the relevant network.</p>
-      </div>
-
-      <div className="finding-list">
-        {loading ? Array.from({ length: 5 }).map((_, i) => (
-          <div className="finding-skeleton" key={i}>
-            <div className="skeleton-line short" /><div className="skeleton-line title" /><div className="skeleton-line" /><div className="skeleton-line" />
-          </div>
-        )) : visible.map((f, index) => {
-          const label = humanType(f.finding_type);
-          const person = f.person_name || f.title.split(":").slice(1).join(":").trim();
           return (
             <button
-              key={f.id}
-              className={`finding-card ${selectedId === f.id ? "selected" : ""}`}
-              onClick={() => onSelect(f)}
+              key={filterName}
+              type="button"
+              className={`finding-filter ${
+                active ? "active" : ""
+              }`}
+              onClick={() => setFilter(filterName)}
             >
-              <div className="finding-card-top">
-                <span className="lead-icon">{typeIcon[f.finding_type] || "•"}</span>
-                <span className={`severity severity-${f.importance.toLowerCase()}`}>
-                  {f.importance}
-                </span>
-                <span className="finding-type">{label}</span>
-              </div>
-              <strong>{person}</strong>
-              <p>{f.description}</p>
-              <span className="investigate-link">INVESTIGATE →</span>
-              <small>
-                {f.evidence_count ?? 0} records · {f.case_count ?? 0} cases
-              </small>
-              {index === 0 && selectedId === f.id && <span className="selected-bar" />}
+              {filterName === "All"
+                ? "ALL"
+                : humanType(filterName).toUpperCase()}
             </button>
           );
         })}
       </div>
 
-      {filtered.length > visible.length && (
-        <div className="more-leads">Showing {visible.length} of {filtered.length} leads</div>
+      {/* LOADING */}
+      {loading && (
+        <div className="finding-list">
+          {[1, 2, 3, 4].map((id) => (
+            <div className="finding-skeleton" key={id}>
+              <div className="skeleton-top" />
+
+              <div className="skeleton-line large" />
+              <div className="skeleton-line" />
+              <div className="skeleton-line short" />
+            </div>
+          ))}
+        </div>
+      )}
+
+      {/* EMPTY */}
+      {!loading && filtered.length === 0 && (
+        <div className="findings-empty">
+          <strong>No investigation leads</strong>
+
+          <p>
+            No findings match the current filter.
+          </p>
+        </div>
+      )}
+
+      {/* FINDINGS */}
+      {!loading && filtered.length > 0 && (
+        <div className="finding-list">
+          {filtered.map((finding) => {
+            const selected = selectedId === finding.id;
+            const severity = getSeverity(finding.importance);
+
+            const personBasedFinding =
+                finding.finding_type !== "Transaction Pattern";
+
+            const cleanTitle = personBasedFinding
+                ? finding.person_name || finding.title || "Investigation lead"
+                : finding.title || "Financial interaction";
+
+            return (
+              <button
+                key={finding.id}
+                type="button"
+                className={`finding-card ${
+                  selected ? "selected" : ""
+                }`}
+                onClick={(event) => {
+                  event.preventDefault();
+                  event.stopPropagation();
+
+                  onSelect(finding);
+                }}
+              >
+                <div className="finding-card-top">
+                  <div className="finding-icon">
+                    {getIcon(finding.finding_type)}
+                  </div>
+
+                  <span
+                    className={`severity severity-${severity}`}
+                  >
+                    {severity === "high"
+                      ? "HIGH"
+                      : severity === "medium"
+                        ? "MEDIUM"
+                        : "REVIEW"}
+                  </span>
+
+                  <span className="finding-type">
+                    {humanType(finding.finding_type)}
+                  </span>
+
+                  <span className="finding-arrow">
+                    →
+                  </span>
+                </div>
+
+                <div className="finding-card-title">
+                  {cleanTitle}
+                </div>
+
+                <p className="finding-description">
+                  {finding.description ||
+                    "Trace identified a relationship or pattern that may require further investigation."}
+                </p>
+
+                <div className="finding-card-footer">
+                  <div className="finding-meta">
+                    <span>
+                      {finding.evidence_count ?? 0}{" "}
+                      {(finding.evidence_count ?? 0) === 1
+                        ? "record"
+                        : "records"}
+                    </span>
+
+                    <span>
+                      {finding.case_count ?? 0}{" "}
+                      {(finding.case_count ?? 0) === 1
+                        ? "case"
+                        : "cases"}
+                    </span>
+                  </div>
+
+                  <span className="investigate-label">
+                    {selected
+                      ? "INVESTIGATING"
+                      : "INVESTIGATE →"}
+                  </span>
+                </div>
+              </button>
+            );
+          })}
+        </div>
       )}
     </aside>
   );

@@ -23,6 +23,7 @@ export default function InvestigationWorkspace() {
   const [profileOpen, setProfileOpen] = useState(false);
   const [graphFocusId, setGraphFocusId] = useState<string | undefined>();
   const [hopDistance, setHopDistance] = useState<0 | 1 | 2>(0);
+  const [contextReady, setContextReady] = useState(false);
 
   useEffect(() => {
     if (!finding?.person_id) {
@@ -33,6 +34,7 @@ export default function InvestigationWorkspace() {
     setProfileLoading(true);
     setGraphFocusId(finding.person_id);
     setHopDistance(1);
+    setContextReady(true);
     fetch(`${API}/api/person/${finding.person_id}`)
       .then((r) => (r.ok ? r.json() : null))
       .then((d) => { if (d) setPerson(d); })
@@ -64,6 +66,7 @@ export default function InvestigationWorkspace() {
 
   const handlePersonLoading = useCallback((personId: string) => {
     setPerson(null);
+    setContextReady(true);
     setProfileLoading(true);
     setGraphFocusId(personId);
     setHopDistance(1);
@@ -75,7 +78,7 @@ export default function InvestigationWorkspace() {
   }, [finding]);
 
   return (
-    <div className="trace-workspace">
+    <div className={`trace-workspace ${finding ? "has-investigation-context" : ""}`}>
       <InvestigationHeader query={query} onQueryChange={setQuery} />
 
       <div className="trace-main">
@@ -85,31 +88,38 @@ export default function InvestigationWorkspace() {
           <section className="investigation-brief">
             <div className="brief-heading">
               <div>
-                <span className="eyebrow">INVESTIGATION BRIEF</span>
-                <h1>What deserves attention</h1>
+                <span className="eyebrow">{finding ? "INVESTIGATION CONTEXT" : "INVESTIGATION BRIEF"}</span>
+                <h1>{finding ? "Trace built an investigation thread" : "What deserves attention"}</h1>
               </div>
               <div className="brief-status">
-                <span className="status-dot" /> LIVE ANALYSIS
+                <span className="status-dot" /> {finding ? "CONTEXT ACTIVE" : "LIVE ANALYSIS"}
               </div>
             </div>
 
             <div className="brief-content">
               <div className="brief-copy">
-                <span className="brief-label">TRACE HAS PRIORITIZED</span>
-                <strong>{finding ? humanType(finding.finding_type) : "Investigation leads"}</strong>
+                <span className="brief-label">{finding ? humanType(finding.finding_type).toUpperCase() : "TRACE HAS PRIORITIZED"}</span>
+                <strong>{finding ? (finding.person_name || "Selected investigation lead") : "Investigation leads"}</strong>
                 <p>
                   {finding
                     ? finding.description
                     : "Select a lead on the left to focus the relevant people, relationships and evidence."}
                 </p>
+                {finding && (
+                  <div className="context-proof">
+                    <span><b>{evidence.length}</b> supporting records</span>
+                    <span><b>{finding.case_count ?? 0}</b> linked cases</span>
+                    <span><b>1–2</b> network hops ready</span>
+                  </div>
+                )}
               </div>
 
               <div className="brief-actions">
                 {quickLeads.map((lead) => (
                   <button key={lead.id} onClick={() => setView("graph")}>
-                    <span>FOCUSED NETWORK</span>
+                    <span>INVESTIGATION THREAD</span>
                     <b>{lead.person_name || "Selected lead"}</b>
-                    <small>SHOW CONNECTIONS →</small>
+                    <small>INSPECT NETWORK →</small>
                   </button>
                 ))}
                 {!quickLeads.length && (
@@ -128,6 +138,8 @@ export default function InvestigationWorkspace() {
                 searchQuery={query}
                 focusPersonId={graphFocusId}
                 hopDistance={hopDistance}
+                contextType={finding ? humanType(finding.finding_type) : undefined}
+                contextPerson={finding?.person_name || person?.name}
                 onPersonSelect={handlePersonSelect}
                 onPersonLoading={handlePersonLoading}
               />

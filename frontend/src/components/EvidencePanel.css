@@ -1,2 +1,18 @@
 .evidence-panel{padding:18px}.evidence-empty{font-size:11px;line-height:1.5;color:#697480;margin-top:12px}.evidence-items{margin-top:10px}.evidence-item{padding:11px 0;border-bottom:1px solid #232b36}.evidence-meta{display:flex;justify-content:space-between;gap:8px}.evidence-meta span{font:500 9px 'IBM Plex Mono';color:#d9a441}.evidence-meta time{font:9px 'IBM Plex Mono';color:#68737f}.evidence-item p{font-size:11px;line-height:1.5;color:#aeb5bd;margin:7px 0}.evidence-item small{font:9px 'IBM Plex Mono';color:#59636f}
-.evidence-loading{display:flex;align-items:center;gap:9px;margin-top:14px;color:#7c8792;font-size:10px}.mini-spinner{width:11px;height:11px;border:1px solid #4d5864;border-top-color:#d9a441;border-radius:50%;animation:trace-evidence-spin .7s linear infinite;flex-shrink:0}@keyframes trace-evidence-spin{to{transform:rotate(360deg)}}
+.evidence-panel {
+  border-top: 1px solid #232b36;
+}
+
+.evidence-panel .section-label::after {
+  content: '  ·  VERIFIED SUPPORT';
+  color: #59636f;
+}
+
+.evidence-item {
+  transition: background .15s ease, border-color .15s ease;
+}
+
+.evidence-item:hover {
+  background: #151b22;
+  border-bottom-color: #3a4552;
+}

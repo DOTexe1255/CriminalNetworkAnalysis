@@ -148,25 +148,25 @@ def get_findings(
     OPTIONAL MATCH (c:Case)-[:HAS_FINDING]->(f)
     OPTIONAL MATCH (f)-[:SUPPORTED_BY]->(ev:Evidence)
     {where}
-    WITH f, p,
-         count(DISTINCT c) AS case_count,
-         count(DISTINCT ev) AS evidence_count
+    WITH f,
+        collect(DISTINCT p)[0] AS p,
+        count(DISTINCT c) AS case_count,
+        count(DISTINCT ev) AS evidence_count
     RETURN f.id AS id,
-           f.finding_type AS finding_type,
-           f.title AS title,
-           f.description AS description,
-           f.importance AS importance,
-           p.id AS person_id,
-           p.full_name AS person_name,
-           evidence_count,
-           case_count
+        f.finding_type AS finding_type,
+        f.title AS title,
+        f.description AS description,
+        f.importance AS importance,
+        p.id AS person_id,
+        p.full_name AS person_name,
+        evidence_count,
+        case_count
     ORDER BY
         CASE f.importance
             WHEN 'High' THEN 0
             WHEN 'Medium' THEN 1
             ELSE 2
         END,
-        f.finding_type,
         f.title
     LIMIT $limit
     """

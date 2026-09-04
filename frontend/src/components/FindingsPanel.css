@@ -1,3 +1,425 @@
-.findings-panel{background:#131920;border-right:1px solid #28313b;overflow:auto;min-width:0}.panel-heading{padding:22px 17px 16px;border-bottom:1px solid #28313b}.panel-heading h2{font-size:19px;line-height:1.1;margin:7px 0 5px;color:#edf0f3}.panel-subtitle{font-size:10px;line-height:1.45;color:#687482;margin:0;max-width:220px}.eyebrow,.section-label{font:500 9px 'IBM Plex Mono',monospace;letter-spacing:.14em;color:#76818d}.finding-count{float:right;margin-top:-32px;font:500 12px 'IBM Plex Mono';color:#d9a441}.finding-filters{padding:9px;display:flex;gap:4px;flex-wrap:wrap;border-bottom:1px solid #28313b}.finding-filters button{border:1px solid #28313b;background:#151b22;color:#697581;padding:5px 7px;font:9px 'IBM Plex Mono';cursor:pointer}.finding-filters button.active{color:#e8ebee;border-color:#d9a441;background:#1b2027}.lead-hint{display:flex;gap:8px;padding:10px 12px;border-bottom:1px solid #232b36;background:#151b22}.lead-hint span{font:500 9px 'IBM Plex Mono';color:#d9a441;padding-top:1px}.lead-hint p{font-size:9px;line-height:1.45;color:#6f7a86;margin:0}.finding-list{padding:7px}.finding-card{position:relative;display:block;width:100%;text-align:left;background:#151b22;border:1px solid #222b35;border-radius:2px;color:#c7cdd6;padding:12px 11px 11px;margin-bottom:7px;cursor:pointer;transition:.15s ease}.finding-card:hover{background:#1a2028;border-color:#35404b}.finding-card.selected{background:#1b222b;border-color:#8d6d32;box-shadow:inset 2px 0 0 #d9a441}.finding-card-top{display:flex;align-items:center;gap:6px;margin-bottom:7px}.lead-icon{width:18px;height:18px;display:grid;place-items:center;border:1px solid #4c5661;color:#d9a441;font:11px 'IBM Plex Mono'}.severity{font:500 8px 'IBM Plex Mono';padding:2px 4px;border:1px solid}.severity-high{color:#e1aa5d;border-color:#795b35}.severity-medium{color:#b7bec6;border-color:#515a63}.severity-low{color:#8e99a5;border-color:#414b55}.finding-type{font:9px 'IBM Plex Mono';color:#7e8995;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}.finding-card strong{display:block;color:#f0f2f4;font-size:12px;line-height:1.2;margin:0 0 6px}.finding-card p{font-size:9.5px;line-height:1.5;color:#87929e;margin:0 0 10px}.investigate-link{display:inline-block;color:#d9a441;font:500 8px 'IBM Plex Mono';letter-spacing:.05em}.finding-card small{display:block;font:8px 'IBM Plex Mono';color:#596570;margin-top:8px}.selected-bar{position:absolute;right:8px;top:8px;width:5px;height:5px;border-radius:50%;background:#d9a441}.more-leads{text-align:center;padding:8px 10px 15px;color:#5f6a76;font:8px 'IBM Plex Mono'}
+.findings-panel {
+  position: relative;
+  z-index: 20;
+  min-width: 0;
+  height: 100%;
+  overflow-y: auto;
+  overflow-x: hidden;
+  pointer-events: auto;
 
-.finding-skeleton{padding:13px 11px;margin-bottom:7px;border:1px solid #222b35;background:#151b22;border-radius:2px}.finding-skeleton .skeleton-line{height:8px;margin-bottom:9px;background:linear-gradient(90deg,#1b222b 25%,#252e38 50%,#1b222b 75%);background-size:200% 100%;animation:trace-shimmer 1.15s linear infinite}.finding-skeleton .short{width:38%}.finding-skeleton .title{width:72%;height:12px}.finding-skeleton .skeleton-line:last-child{width:52%;margin-bottom:0}@keyframes trace-shimmer{0%{background-position:200% 0}100%{background-position:-200% 0}}
+  background: #131920;
+  border-right: 1px solid #232b36;
+  color: #e4e7eb;
+}
+
+.panel-heading {
+  padding: 18px 16px 14px;
+
+  display: flex;
+  justify-content: space-between;
+  align-items: flex-start;
+  gap: 10px;
+
+  border-bottom: 1px solid #232b36;
+}
+
+.eyebrow {
+  display: block;
+
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 9px;
+  font-weight: 500;
+  letter-spacing: 0.12em;
+
+  color: #687481;
+}
+
+.panel-heading h2 {
+  margin: 5px 0 3px;
+
+  color: #e8ebee;
+
+  font-size: 15px;
+  font-weight: 500;
+  line-height: 1.2;
+}
+
+.panel-subtitle {
+  margin: 0;
+
+  max-width: 225px;
+
+  color: #6f7b87;
+
+  font-size: 9px;
+  line-height: 1.4;
+}
+
+.finding-count {
+  flex-shrink: 0;
+
+  color: #d9a441;
+
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 11px;
+}
+
+/* FILTERS */
+
+.finding-filters {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 5px;
+
+  padding: 9px;
+
+  border-bottom: 1px solid #232b36;
+}
+
+.finding-filter {
+  appearance: none;
+
+  border: 1px solid #29323c;
+  border-radius: 0;
+
+  background: #11171e;
+
+  color: #707c89;
+
+  padding: 5px 7px;
+
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 7.5px;
+  line-height: 1;
+
+  cursor: pointer;
+
+  transition:
+    border-color 120ms ease,
+    color 120ms ease,
+    background 120ms ease;
+}
+
+.finding-filter:hover {
+  border-color: #59636e;
+  color: #c7cdd3;
+}
+
+.finding-filter.active {
+  border-color: #b68b3b;
+
+  background: #1a1b1b;
+
+  color: #e4e7eb;
+}
+
+/* LIST */
+
+.finding-list {
+  display: flex;
+  flex-direction: column;
+
+  padding: 5px;
+}
+
+/* CARD */
+
+.finding-card {
+  appearance: none;
+
+  position: relative;
+
+  display: block;
+
+  width: 100%;
+
+  margin: 0;
+  padding: 11px 9px 10px;
+
+  border: 1px solid transparent;
+  border-bottom-color: #252e38;
+
+  border-radius: 0;
+
+  background: transparent;
+
+  color: #c7cdd6;
+
+  text-align: left;
+
+  cursor: pointer;
+
+  pointer-events: auto;
+
+  font-family: inherit;
+
+  transition:
+    background 120ms ease,
+    border-color 120ms ease,
+    transform 120ms ease;
+}
+
+.finding-card:hover {
+  background: #181e25;
+  border-color: #303a45;
+}
+
+.finding-card:active {
+  transform: translateY(1px);
+}
+
+.finding-card.selected {
+  background: #1a2027;
+
+  border-color: #5d5138;
+
+  box-shadow: inset 3px 0 0 #d9a441;
+}
+
+.finding-card-top {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+
+  min-width: 0;
+}
+
+.finding-icon {
+  width: 18px;
+  height: 18px;
+
+  flex-shrink: 0;
+
+  display: flex;
+  align-items: center;
+  justify-content: center;
+
+  border: 1px solid #3a434d;
+
+  color: #c9d0d7;
+
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 10px;
+}
+
+.finding-card.selected .finding-icon {
+  border-color: #8b6c31;
+  color: #d9a441;
+}
+
+.severity {
+  flex-shrink: 0;
+
+  padding: 2px 4px;
+
+  border: 1px solid;
+
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 7px;
+  font-weight: 500;
+  letter-spacing: 0.05em;
+}
+
+.severity-high {
+  color: #dfa45c;
+  border-color: #70552f;
+}
+
+.severity-medium {
+  color: #aeb6bf;
+  border-color: #4c555f;
+}
+
+.severity-review {
+  color: #7f8a96;
+  border-color: #3a434c;
+}
+
+.finding-type {
+  min-width: 0;
+
+  overflow: hidden;
+
+  color: #737f8b;
+
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 7.5px;
+
+  white-space: nowrap;
+  text-overflow: ellipsis;
+}
+
+.finding-arrow {
+  margin-left: auto;
+
+  flex-shrink: 0;
+
+  color: #66727e;
+
+  font-size: 11px;
+}
+
+.finding-card.selected .finding-arrow {
+  color: #d9a441;
+}
+
+/* TITLE */
+
+.finding-card-title {
+  margin-top: 7px;
+
+  color: #e3e7ea;
+
+  font-size: 11px;
+  font-weight: 500;
+  line-height: 1.25;
+}
+
+/* DESCRIPTION */
+
+.finding-description {
+  margin: 4px 0 8px;
+
+  color: #7f8a96;
+
+  font-size: 9px;
+  line-height: 1.4;
+}
+
+/* FOOTER */
+
+.finding-card-footer {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+
+  gap: 8px;
+}
+
+.finding-meta {
+  display: flex;
+  gap: 7px;
+
+  color: #596570;
+
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 7px;
+}
+
+.finding-meta span + span {
+  padding-left: 7px;
+
+  border-left: 1px solid #303842;
+}
+
+.investigate-label {
+  flex-shrink: 0;
+
+  color: #737e89;
+
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 7px;
+  letter-spacing: 0.04em;
+}
+
+.finding-card.selected .investigate-label {
+  color: #d9a441;
+}
+
+/* EMPTY */
+
+.findings-empty {
+  margin: 10px;
+
+  padding: 20px 12px;
+
+  border: 1px solid #28313b;
+
+  background: #11171e;
+}
+
+.findings-empty strong {
+  color: #dce1e5;
+
+  font-size: 10px;
+  font-weight: 500;
+}
+
+.findings-empty p {
+  margin: 5px 0 0;
+
+  color: #6f7a86;
+
+  font-size: 8px;
+  line-height: 1.4;
+}
+
+/* LOADING */
+
+.finding-skeleton {
+  margin: 3px 0;
+  padding: 12px 9px;
+
+  border-bottom: 1px solid #252e38;
+}
+
+.skeleton-top,
+.skeleton-line {
+  background: #202832;
+
+  animation: finding-shimmer 1.2s ease-in-out infinite;
+}
+
+.skeleton-top {
+  width: 75px;
+  height: 8px;
+
+  margin-bottom: 10px;
+}
+
+.skeleton-line {
+  width: 90%;
+  height: 8px;
+
+  margin-bottom: 6px;
+}
+
+.skeleton-line.large {
+  width: 75%;
+}
+
+.skeleton-line.short {
+  width: 45%;
+}
+
+@keyframes finding-shimmer {
+  0% {
+    opacity: 0.45;
+  }
+
+  50% {
+    opacity: 0.9;
+  }
+
+  100% {
+    opacity: 0.45;
+  }
+}
+
+/* SCROLLBAR */
+
+.findings-panel::-webkit-scrollbar {
+  width: 7px;
+}
+
+.findings-panel::-webkit-scrollbar-track {
+  background: #10151b;
+}
+
+.findings-panel::-webkit-scrollbar-thumb {
+  background: #303943;
+}
+
+.findings-panel::-webkit-scrollbar-thumb:hover {
+  background: #46515d;
+}
