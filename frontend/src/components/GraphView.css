@@ -1,0 +1,132 @@
+.trace-graph-wrap{
+  position:relative;
+  width:100%;
+  height:100%;
+  min-height:0;
+  background:#10151C;
+}
+
+.graph-canvas{
+  width:100%;
+  height:100%;
+}
+
+.graph-status{
+  position:absolute;
+  top:16px;
+  left:16px;
+  z-index:10;
+  padding:8px 12px;
+  background:#161C24;
+  border:1px solid #28313B;
+  color:#C7CDD6;
+  font-size:11px;
+}
+
+.graph-error{
+  color:#E0A15C;
+}
+
+.graph-context{
+  position:absolute;
+  top:18px;
+  right:18px;
+  z-index:5;
+  width:235px;
+  padding:12px 14px;
+  background:rgba(22,28,36,.94);
+  border:1px solid #28313B;
+  pointer-events:none;
+}
+
+.context-kicker{
+  display:block;
+  font:500 9px 'IBM Plex Mono',monospace;
+  letter-spacing:.12em;
+  color:#D9A441;
+  margin-bottom:5px;
+}
+
+.graph-context strong{
+  display:block;
+  color:#DDE2E7;
+  font-size:12px;
+  font-weight:500;
+}
+
+.graph-context small{
+  display:block;
+  color:#68737F;
+  font-size:10px;
+  line-height:1.45;
+  margin-top:5px;
+}
+
+.graph-legend{
+  position:absolute;
+  left:16px;
+  bottom:70px;
+  z-index:5;
+  display:flex;
+  flex-direction:column;
+  gap:7px;
+  padding:12px 14px;
+  background:rgba(22,28,36,.96);
+  border:1px solid #28313B;
+  color:#89939F;
+  font-size:10px;
+  pointer-events:none;
+}
+
+.graph-legend b{
+  color:#C7CDD6;
+  font:500 10px 'IBM Plex Mono',monospace;
+  margin-bottom:2px;
+}
+
+.graph-legend span{
+  display:flex;
+  align-items:center;
+  gap:7px;
+}
+
+.legend-dot{
+  width:9px;
+  height:9px;
+  border-radius:50%;
+  display:inline-block;
+  flex-shrink:0;
+}
+
+.legend-dot.ordinary{background:#5B7A9D}
+.legend-dot.notable{background:#8A8F98}
+.legend-dot.key{background:#D9A441}
+
+.graph-legend small{
+  color:#59636F;
+  margin-top:4px;
+}
+
+@media(max-width:700px){
+  .graph-context{display:none}
+  .graph-legend{left:10px;bottom:62px}
+}
+
+.graph-status{
+  display:flex;
+  align-items:center;
+  gap:8px;
+}
+
+.graph-status::before{
+  content:"";
+  width:10px;
+  height:10px;
+  border:1px solid #56616d;
+  border-top-color:#d9a441;
+  border-radius:50%;
+  animation:trace-spin .7s linear infinite;
+  flex-shrink:0;
+}
+
+@keyframes trace-spin{to{transform:rotate(360deg)}}

@@ -1,0 +1,1 @@
+import "./MapView.css"; export default function MapView({personId}:{personId?:string}){return <div className="placeholder-view"><span className="eyebrow">GEOSPATIAL ANALYSIS</span><h2>Location Intelligence</h2><p>{personId?"Locations associated with the selected entity.":"Select an entity to inspect relevant locations."}</p><div className="map-grid"><b/><b/><b/></div></div>}
