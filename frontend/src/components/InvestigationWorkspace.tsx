@@ -12,32 +12,37 @@ import "./InvestigationWorkspace.css";
 
 const API = "http://localhost:8000";
 
+type AnalysisView = "graph" | "timeline" | "map";
+
 export default function InvestigationWorkspace() {
   const [person, setPerson] = useState<PersonDetails | null>(null);
   const [finding, setFinding] = useState<Finding | null>(null);
   const [evidence, setEvidence] = useState<Evidence[]>([]);
-  const [view, setView] = useState<"graph" | "timeline" | "map">("graph");
+  const [activeEvidenceId, setActiveEvidenceId] = useState<string | null>(null);
+  const [view, setView] = useState<AnalysisView>("graph");
   const [query, setQuery] = useState("");
   const [profileLoading, setProfileLoading] = useState(false);
   const [evidenceLoading, setEvidenceLoading] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [graphFocusId, setGraphFocusId] = useState<string | undefined>();
   const [hopDistance, setHopDistance] = useState<0 | 1 | 2>(0);
-  const [contextReady, setContextReady] = useState(false);
 
   useEffect(() => {
     if (!finding?.person_id) {
       setProfileLoading(false);
       return;
     }
+
     setPerson(null);
     setProfileLoading(true);
     setGraphFocusId(finding.person_id);
     setHopDistance(1);
-    setContextReady(true);
+
     fetch(`${API}/api/person/${finding.person_id}`)
       .then((r) => (r.ok ? r.json() : null))
-      .then((d) => { if (d) setPerson(d); })
+      .then((d) => {
+        if (d) setPerson(d);
+      })
       .catch(() => {})
       .finally(() => setProfileLoading(false));
   }, [finding]);
@@ -46,10 +51,14 @@ export default function InvestigationWorkspace() {
     if (!finding?.id) {
       setEvidence([]);
       setEvidenceLoading(false);
+      setActiveEvidenceId(null);
       return;
     }
+
     setEvidence([]);
+    setActiveEvidenceId(null);
     setEvidenceLoading(true);
+
     fetch(`${API}/api/finding/${finding.id}/evidence`)
       .then((r) => (r.ok ? r.json() : []))
       .then((d) => setEvidence(Array.isArray(d) ? d : d?.evidence ?? []))
@@ -57,71 +66,112 @@ export default function InvestigationWorkspace() {
       .finally(() => setEvidenceLoading(false));
   }, [finding]);
 
+  const handleFindingSelect = useCallback((nextFinding: Finding) => {
+    setFinding(nextFinding);
+    setActiveEvidenceId(null);
+    setView("graph");
+  }, []);
+
   const handlePersonSelect = useCallback((nextPerson: PersonDetails) => {
     setPerson(nextPerson);
     setProfileLoading(false);
     setGraphFocusId(nextPerson.id);
-    setHopDistance((current) => current === 0 ? 1 : current);
+    setHopDistance((current) => (current === 0 ? 1 : current));
   }, []);
 
   const handlePersonLoading = useCallback((personId: string) => {
     setPerson(null);
-    setContextReady(true);
     setProfileLoading(true);
     setGraphFocusId(personId);
     setHopDistance(1);
   }, []);
 
-  const quickLeads = useMemo(() => {
-    if (!finding) return [];
-    return [finding];
-  }, [finding]);
+  const handleEvidenceSelect = useCallback((item: Evidence) => {
+    setActiveEvidenceId(item.id);
+
+    // Make evidence navigation change the central investigation view too.
+    // A location event belongs on the map; calls/transactions/cross-case
+    // records are most useful in temporal context.
+    if (item.evidence_type === "Location Event") {
+      setView("map");
+    } else {
+      setView("timeline");
+    }
+  }, []);
+
+  const quickLeads = useMemo(() => (finding ? [finding] : []), [finding]);
+
+  const contextLabel = finding
+    ? humanType(finding.finding_type)
+    : undefined;
 
   return (
     <div className={`trace-workspace ${finding ? "has-investigation-context" : ""}`}>
       <InvestigationHeader query={query} onQueryChange={setQuery} />
 
       <div className="trace-main">
-        <FindingsPanel selectedId={finding?.id} onSelect={setFinding} />
+        <FindingsPanel
+          selectedId={finding?.id}
+          onSelect={handleFindingSelect}
+        />
 
         <main className="trace-center">
           <section className="investigation-brief">
             <div className="brief-heading">
               <div>
-                <span className="eyebrow">{finding ? "INVESTIGATION CONTEXT" : "INVESTIGATION BRIEF"}</span>
-                <h1>{finding ? "Trace built an investigation thread" : "What deserves attention"}</h1>
+                <span className="eyebrow">
+                  {finding ? "INVESTIGATION CONTEXT" : "INVESTIGATION BRIEF"}
+                </span>
+                <h1>
+                  {finding
+                    ? "Trace built an investigation thread"
+                    : "What deserves attention"}
+                </h1>
               </div>
+
               <div className="brief-status">
-                <span className="status-dot" /> {finding ? "CONTEXT ACTIVE" : "LIVE ANALYSIS"}
+                <span className="status-dot" />
+                {finding ? "CONTEXT ACTIVE" : "LIVE ANALYSIS"}
               </div>
             </div>
 
             <div className="brief-content">
               <div className="brief-copy">
-                <span className="brief-label">{finding ? humanType(finding.finding_type).toUpperCase() : "TRACE HAS PRIORITIZED"}</span>
-                <strong>{finding ? (finding.person_name || "Selected investigation lead") : "Investigation leads"}</strong>
+                <span className="brief-label">
+                  {finding ? contextLabel?.toUpperCase() : "TRACE HAS PRIORITIZED"}
+                </span>
+
+                <strong>
+                  {finding
+                    ? finding.person_name || "Selected investigation lead"
+                    : "Investigation leads"}
+                </strong>
+
                 <p>
                   {finding
                     ? finding.description
                     : "Select a lead on the left to focus the relevant people, relationships and evidence."}
                 </p>
+
                 {finding && (
                   <div className="context-proof">
                     <span><b>{evidence.length}</b> supporting records</span>
                     <span><b>{finding.case_count ?? 0}</b> linked cases</span>
                     <span><b>1–2</b> network hops ready</span>
+                    <span><b>{view.toUpperCase()}</b> context view</span>
                   </div>
                 )}
               </div>
 
               <div className="brief-actions">
                 {quickLeads.map((lead) => (
-                  <button key={lead.id} onClick={() => setView("graph")}>
+                  <button key={lead.id} type="button" onClick={() => setView("graph")}>
                     <span>INVESTIGATION THREAD</span>
                     <b>{lead.person_name || "Selected lead"}</b>
                     <small>INSPECT NETWORK →</small>
                   </button>
                 ))}
+
                 {!quickLeads.length && (
                   <div className="brief-placeholder">
                     <span>START HERE</span>
@@ -138,14 +188,37 @@ export default function InvestigationWorkspace() {
                 searchQuery={query}
                 focusPersonId={graphFocusId}
                 hopDistance={hopDistance}
-                contextType={finding ? humanType(finding.finding_type) : undefined}
+                contextType={contextLabel}
                 contextPerson={finding?.person_name || person?.name}
                 onPersonSelect={handlePersonSelect}
                 onPersonLoading={handlePersonLoading}
               />
             )}
-            {view === "timeline" && <TimelineView personId={person?.id} />}
-            {view === "map" && <MapView personId={person?.id} />}
+
+            {view === "timeline" && (
+              <TimelineView
+                personId={person?.id || finding?.person_id}
+                personName={person?.name || finding?.person_name}
+                finding={finding}
+                evidence={evidence}
+                loading={evidenceLoading}
+                activeEvidenceId={activeEvidenceId}
+                onEvidenceSelect={(item) => setActiveEvidenceId(item.id)}
+              />
+            )}
+
+            {view === "map" && (
+              <MapView
+                person={person}
+                personId={person?.id || finding?.person_id}
+                personName={person?.name || finding?.person_name}
+                finding={finding}
+                evidence={evidence}
+                activeEvidenceId={activeEvidenceId}
+                onEvidenceSelect={(item) => setActiveEvidenceId(item.id)}
+              />
+            )}
+
             <GraphControls
               view={view}
               onViewChange={setView}
@@ -171,7 +244,14 @@ export default function InvestigationWorkspace() {
             loading={profileLoading}
             onViewProfile={() => setProfileOpen(true)}
           />
-          <EvidencePanel evidence={evidence} finding={finding} loading={evidenceLoading} />
+
+          <EvidencePanel
+            evidence={evidence}
+            finding={finding}
+            loading={evidenceLoading}
+            activeEvidenceId={activeEvidenceId}
+            onEvidenceSelect={handleEvidenceSelect}
+          />
         </aside>
       </div>
 
