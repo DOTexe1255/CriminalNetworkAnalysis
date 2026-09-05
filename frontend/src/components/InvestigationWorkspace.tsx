@@ -21,6 +21,7 @@ export default function InvestigationWorkspace() {
   const [activeEvidenceId, setActiveEvidenceId] = useState<string | null>(null);
   const [view, setView] = useState<AnalysisView>("graph");
   const [query, setQuery] = useState("");
+  const [caseId, setCaseId] = useState("case_00000");
   const [profileLoading, setProfileLoading] = useState(false);
   const [evidenceLoading, setEvidenceLoading] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
@@ -43,7 +44,7 @@ export default function InvestigationWorkspace() {
       .then((d) => {
         if (d) setPerson(d);
       })
-      .catch(() => {})
+      .catch(() => { })
       .finally(() => setProfileLoading(false));
   }, [finding]);
 
@@ -71,6 +72,12 @@ export default function InvestigationWorkspace() {
     setActiveEvidenceId(null);
     setView("graph");
   }, []);
+
+  useEffect(() => {
+    setFinding(null);
+    setPerson(null);
+    setEvidence([]);
+  }, [caseId]);
 
   const handlePersonSelect = useCallback((nextPerson: PersonDetails) => {
     setPerson(nextPerson);
@@ -107,12 +114,18 @@ export default function InvestigationWorkspace() {
 
   return (
     <div className={`trace-workspace ${finding ? "has-investigation-context" : ""}`}>
-      <InvestigationHeader query={query} onQueryChange={setQuery} />
+      <InvestigationHeader
+        query={query}
+        onQueryChange={setQuery}
+        caseId={caseId}
+        onCaseChange={setCaseId}
+      />
 
       <div className="trace-main">
         <FindingsPanel
           selectedId={finding?.id}
-          onSelect={handleFindingSelect}
+          caseId={caseId}
+          onSelect={setFinding}
         />
 
         <main className="trace-center">
@@ -187,11 +200,12 @@ export default function InvestigationWorkspace() {
               <GraphView
                 searchQuery={query}
                 focusPersonId={graphFocusId}
-                hopDistance={hopDistance}
-                contextType={contextLabel}
-                contextPerson={finding?.person_name || person?.name}
                 onPersonSelect={handlePersonSelect}
                 onPersonLoading={handlePersonLoading}
+                hopDistance={hopDistance}
+                contextType={finding?.finding_type}
+                contextPerson={finding?.person_name}
+                caseId={caseId}
               />
             )}
 

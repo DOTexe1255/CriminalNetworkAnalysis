@@ -24,6 +24,7 @@ type GraphViewProps = {
   hopDistance?: 0 | 1 | 2;
   contextType?: string;
   contextPerson?: string;
+  caseId?: string;
 };
 
 export default function GraphView({
@@ -34,6 +35,7 @@ export default function GraphView({
   hopDistance = 0,
   contextType,
   contextPerson,
+  caseId,
 }: GraphViewProps) {
   const containerRef = useRef<HTMLDivElement>(null);
   const cyRef = useRef<Core | null>(null);
@@ -47,7 +49,11 @@ export default function GraphView({
       try {
         setLoading(true);
 
-        const response = await fetch(`${API}/api/graph?limit=150`);
+        const graphUrl = caseId
+          ? `${API}/api/graph?case_id=${encodeURIComponent(caseId)}&limit=150`
+          : `${API}/api/graph?limit=150`;
+
+        const response = await fetch(graphUrl);
         if (!response.ok) {
           throw new Error(`Backend returned ${response.status}`);
         }
@@ -251,7 +257,7 @@ export default function GraphView({
       cyRef.current?.destroy();
       cyRef.current = null;
     };
-  }, [onPersonSelect]);
+  }, [onPersonSelect, caseId]);
 
   // Focus the selected person and show only the requested investigation radius.
   useEffect(() => {

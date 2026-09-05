@@ -30,7 +30,10 @@ def shutdown():
 
 
 @app.get("/api/graph")
-def get_graph(limit: int = 150):
+def get_graph(
+    limit: int = 300,
+    case_id: str | None = None,
+):
     query = """
     MATCH (p:Person)
     WHERE p.betweenness_centrality IS NOT NULL
@@ -124,35 +127,25 @@ def get_top_connectors(by: str = "betweenness", count: int = 10):
         return [dict(r) for r in session.run(query, count=count)]
 
 
-@app.get("/api/findings")
-def get_findings(
-    importance: str | None = None,
-    finding_type: str | None = None,
-    limit: int = 50,
-):
-    conditions = []
-    params = {"limit": limit}
+@app.get("/api/case/{case_id}/findings")
+def get_case_findings(case_id: str):
+    query = """
+    MATCH (c:Case {id: $case_id})-[:HAS_FINDING]->(f:Finding)
 
-    if importance:
-        conditions.append("f.importance = $importance")
-        params["importance"] = importance
-    if finding_type:
-        conditions.append("f.finding_type = $finding_type")
-        params["finding_type"] = finding_type
-
-    where = "WHERE " + " AND ".join(conditions) if conditions else ""
-
-    query = f"""
-    MATCH (f:Finding)
     OPTIONAL MATCH (f)-[:ABOUT]->(p:Person)
-    OPTIONAL MATCH (c:Case)-[:HAS_FINDING]->(f)
+
     OPTIONAL MATCH (f)-[:SUPPORTED_BY]->(ev:Evidence)
-    {where}
-    WITH f,
+
+    OPTIONAL MATCH (other_case:Case)-[:HAS_FINDING]->(f)
+
+    WITH
+        f,
         collect(DISTINCT p)[0] AS p,
-        count(DISTINCT c) AS case_count,
-        count(DISTINCT ev) AS evidence_count
-    RETURN f.id AS id,
+        count(DISTINCT ev) AS evidence_count,
+        count(DISTINCT other_case) AS case_count
+
+    RETURN
+        f.id AS id,
         f.finding_type AS finding_type,
         f.title AS title,
         f.description AS description,
@@ -161,19 +154,25 @@ def get_findings(
         p.full_name AS person_name,
         evidence_count,
         case_count
+
     ORDER BY
         CASE f.importance
             WHEN 'High' THEN 0
             WHEN 'Medium' THEN 1
             ELSE 2
         END,
+        f.finding_type,
         f.title
-    LIMIT $limit
     """
 
     with driver.session() as session:
-        return [dict(r) for r in session.run(query, **params)]
-
+        return [
+            dict(r)
+            for r in session.run(
+                query,
+                case_id=case_id
+            )
+        ]
 
 @app.get("/api/finding/{finding_id}")
 def get_finding(finding_id: str):
