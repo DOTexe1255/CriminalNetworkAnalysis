@@ -1,5 +1,6 @@
 import { useEffect, useMemo, useState } from "react";
 import "./FindingsPanel.css";
+import { API_BASE_URL } from "../config";
 
 export type Finding = {
   id: string;
@@ -25,7 +26,7 @@ export function humanType(type: string): string {
   return labels[type] ?? type;
 }
 
-const API = "http://localhost:8000";
+const API = API_BASE_URL;
 
 const FILTERS = [
   "All",

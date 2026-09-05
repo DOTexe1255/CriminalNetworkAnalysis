@@ -85,7 +85,7 @@ export default function GraphView({
                 "text-margin-y": 7,
                 "text-background-color": "#10151C",
                 "text-background-opacity": 0.92,
-                "text-background-padding": 2,
+                "text-background-padding": "2",
                 width: "data(size)",
                 height: "data(size)",
                 "border-width": 1,
@@ -155,7 +155,7 @@ export default function GraphView({
         });
 
         const nodes = cy.nodes();
-        nodes.forEach((node) => node.addClass("labeled"));
+        nodes.forEach((node) => { node.addClass("labeled"); });
 
         cy.on("tap", "node", async (event) => {
           const node = event.target as NodeSingular;

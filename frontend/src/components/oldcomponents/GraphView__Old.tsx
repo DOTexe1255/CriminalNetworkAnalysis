@@ -79,7 +79,7 @@ export default function GraphView({
                 "text-margin-y": 6,
                 "text-background-color": "#10151C",
                 "text-background-opacity": 0.9,
-                "text-background-padding": 2,
+                "text-background-padding": "2",
                 width: "mapData(degree, 0, 0.1, 16, 46)",
                 height: "mapData(degree, 0, 0.1, 16, 46)",
                 "border-width": 1,

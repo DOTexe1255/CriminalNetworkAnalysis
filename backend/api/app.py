@@ -1,12 +1,22 @@
 import os
 import json
+import uuid
 from pathlib import Path
 from typing import Any
-from fastapi import FastAPI, HTTPException
+from fastapi import File, FastAPI, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
 from neo4j import GraphDatabase
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field
+from pypdf import PdfReader
+import psycopg
+from psycopg.types.json import Jsonb
+try:
+    from services.rag_service import RagService
+    from services.vector_store import VectorStore
+except ImportError:
+    from .services.rag_service import RagService
+    from .services.vector_store import VectorStore
 
 load_dotenv()
 
@@ -18,7 +28,9 @@ if not all([NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD]):
     raise RuntimeError("Missing NEO4J_URI, NEO4J_USERNAME or NEO4J_PASSWORD in .env")
 
 driver = GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD))
-CASE_STORE = Path(__file__).with_name("mock_cases.json")
+CASE_STORE = Path(__file__).resolve().parent.parent / "mock_cases.json"
+vector_store = VectorStore()
+rag_service = RagService(vector_store)
 
 
 class CaseCreate(BaseModel):
@@ -29,6 +41,25 @@ class CaseCreate(BaseModel):
     lead: str = ""
     documents: list[dict[str, Any]] = []
     evidence: list[dict[str, Any]] = []
+    narratives: list[dict[str, Any]] = []
+    lead_details: list[dict[str, Any]] = []
+
+
+class CaseUpdate(BaseModel):
+    name: str | None = None
+    description: str | None = None
+    status: str | None = None
+    priority: str | None = None
+    lead: str | None = None
+    narratives: list[dict[str, Any]] | None = None
+    lead_details: list[dict[str, Any]] | None = None
+    evidence: list[dict[str, Any]] | None = None
+    documents: list[dict[str, Any]] | None = None
+
+
+class RagQuery(BaseModel):
+    case_id: str = Field(min_length=1)
+    question: str = Field(min_length=3, max_length=2000)
 
 
 def read_mock_cases() -> list[dict[str, Any]]:
@@ -41,6 +72,28 @@ def read_mock_cases() -> list[dict[str, Any]]:
 def write_mock_cases(cases: list[dict[str, Any]]) -> None:
     CASE_STORE.write_text(json.dumps(cases, indent=2), encoding="utf-8")
 
+
+def read_database_cases() -> list[dict[str, Any]]:
+    try:
+        with psycopg.connect(vector_store.database_url) as connection:
+            rows = connection.execute(
+                """
+                  SELECT id, name, description, status, priority, lead,
+                      created_at::text, event_date::text, narratives, lead_details, evidence, documents
+                  FROM cases ORDER BY created_at DESC, id
+                """
+            ).fetchall()
+        return [
+            {
+                "id": row[0], "name": row[1], "description": row[2], "status": row[3],
+                "priority": row[4], "lead": row[5], "created_at": row[6], "event_date": row[7],
+                "narratives": row[8] or [], "lead_details": row[9] or [], "evidence": row[10] or [], "documents": row[11] or [],
+            }
+            for row in rows
+        ]
+    except (psycopg.Error, OSError):
+        return []
+
 app = FastAPI(title="Trace — Criminal Network Intelligence API")
 
 app.add_middleware(
@@ -49,6 +102,15 @@ app.add_middleware(
     allow_methods=["*"],
     allow_headers=["*"],
 )
+
+
+@app.on_event("startup")
+def startup():
+    try:
+        vector_store.initialize()
+    except Exception as error:
+        # Graph browsing remains available when Postgres is still starting.
+        print(f"Vector store is not ready yet: {error}")
 
 @app.on_event("shutdown")
 def shutdown():
@@ -240,8 +302,11 @@ def get_finding_evidence(finding_id: str):
 
 
 @app.get("/api/cases")
-def get_cases():
-    cases = read_mock_cases()
+def get_cases(search: str = "", sort: str = "date_desc"):
+    cases = read_database_cases() or read_mock_cases()
+    if search.strip():
+        needle = search.casefold()
+        cases = [case for case in cases if needle in " ".join(str(case.get(key, "")) for key in ("id", "name", "description", "lead", "case_number")).casefold()]
     try:
         query = """
         MATCH (c:Case)
@@ -253,10 +318,24 @@ def get_cases():
         """
         with driver.session() as session:
             neo4j_cases = [dict(r) for r in session.run(query)]
-        known = {case["id"] for case in cases}
-        cases.extend(case for case in neo4j_cases if case.get("id") not in known)
+            by_id = {case["id"]: case for case in cases}
+            for neo4j_case in neo4j_cases:
+                if neo4j_case.get("id") in by_id:
+                    by_id[neo4j_case["id"]].update(
+                        person_count=neo4j_case.get("person_count", 0),
+                        finding_count=neo4j_case.get("finding_count", 0),
+                    )
+                elif not search.strip():
+                    cases.append(neo4j_case)
     except Exception:
         pass
+    priority_rank = {"High": 0, "Medium": 1, "Low": 2}
+    if sort == "priority":
+        cases.sort(key=lambda case: (priority_rank.get(case.get("priority", "Low"), 3), case.get("created_at", "")), reverse=False)
+    elif sort == "date_asc":
+        cases.sort(key=lambda case: case.get("created_at", ""))
+    else:
+        cases.sort(key=lambda case: case.get("created_at", ""), reverse=True)
     return cases
 
 
@@ -264,7 +343,7 @@ def get_cases():
 def create_case(payload: CaseCreate):
     cases = read_mock_cases()
     case = {
-        "id": f"case_{len(cases):05d}",
+        "id": f"case_{uuid.uuid4().hex[:10]}",
         **payload.model_dump(),
         "created_at": __import__("datetime").date.today().isoformat(),
         "person_count": 0,
@@ -272,12 +351,122 @@ def create_case(payload: CaseCreate):
     }
     cases.insert(0, case)
     write_mock_cases(cases)
+    try:
+        with psycopg.connect(vector_store.database_url) as connection:
+            connection.execute(
+                """
+                INSERT INTO cases (id, name, case_number, description, status, priority, lead, created_at, event_date, narratives, lead_details, evidence, documents)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, CURRENT_DATE, CURRENT_DATE, %s, %s, %s, %s)
+                ON CONFLICT (id) DO NOTHING
+                """,
+                (case["id"], payload.name, case["id"], payload.description, payload.status, payload.priority, payload.lead,
+                 Jsonb(payload.narratives), Jsonb(payload.lead_details), Jsonb(payload.evidence), Jsonb(payload.documents)),
+            )
+            connection.commit()
+    except psycopg.Error:
+        pass
+    try:
+        vector_store.add_documents(
+            case["id"],
+            [
+                *[
+                    {**document, "source_type": document.get("type", "document")}
+                    for document in payload.documents
+                ],
+                *[
+                    {**evidence, "content": evidence.get("description", ""), "source_type": "evidence"}
+                    for evidence in payload.evidence
+                ],
+            ],
+        )
+    except Exception as error:
+        print(f"Could not index initial case material: {error}")
     return case
+
+
+@app.patch("/api/cases/{case_id}")
+def update_case(case_id: str, payload: CaseUpdate):
+    updates = payload.model_dump(exclude_none=True)
+    if not updates:
+        raise HTTPException(400, "No case changes supplied")
+    allowed = {"name", "description", "status", "priority", "lead", "narratives", "lead_details", "evidence", "documents"}
+    updates = {key: value for key, value in updates.items() if key in allowed}
+    assignments = []
+    values: list[Any] = []
+    for key, value in updates.items():
+        assignments.append(f"{key} = %s")
+        values.append(Jsonb(value) if key in {"narratives", "lead_details", "evidence", "documents"} else value)
+    values.append(case_id)
+    try:
+        with psycopg.connect(vector_store.database_url) as connection:
+            row = connection.execute(f"UPDATE cases SET {', '.join(assignments)} WHERE id = %s RETURNING id", values).fetchone()
+            connection.commit()
+        if not row:
+            raise HTTPException(404, "Case not found")
+    except psycopg.Error as error:
+        raise HTTPException(500, f"Case update failed: {error}") from error
+    text_items = []
+    for key in ("description", "narratives", "evidence"):
+        value = updates.get(key)
+        if value:
+            text_items.append({"title": key.title(), "content": value if isinstance(value, str) else json.dumps(value), "source_type": key})
+    if text_items:
+        try:
+            vector_store.delete_case_documents(case_id)
+            vector_store.add_documents(case_id, text_items)
+        except Exception as error:
+            print(f"Could not refresh case search index: {error}")
+    return next(case for case in read_database_cases() if case["id"] == case_id)
+
+
+@app.post("/api/rag/query")
+def query_case(payload: RagQuery):
+    try:
+        return rag_service.answer(payload.case_id, payload.question)
+    except RuntimeError as error:
+        raise HTTPException(503, str(error)) from error
+    except Exception as error:
+        raise HTTPException(500, f"Case query failed: {error}") from error
+
+
+@app.get("/api/case/{case_id}/summary")
+def summarize_case(case_id: str):
+    try:
+        return rag_service.answer(
+            case_id,
+            "Summarize this case using dated facts, involved entities, important relationships, and open questions.",
+        )
+    except RuntimeError as error:
+        raise HTTPException(503, str(error)) from error
+    except Exception as error:
+        raise HTTPException(500, f"Case summary failed: {error}") from error
+
+
+@app.post("/api/cases/{case_id}/documents")
+def upload_case_documents(case_id: str, files: list[UploadFile] = File(...)):
+    documents: list[dict[str, Any]] = []
+    for upload in files:
+        if upload.content_type != "application/pdf":
+            continue
+        reader = PdfReader(upload.file)
+        content = "\n".join(page.extract_text() or "" for page in reader.pages).strip()
+        if content:
+            documents.append({
+                "title": upload.filename or "Uploaded PDF",
+                "content": content,
+                "source_type": "pdf",
+            })
+    try:
+        indexed = vector_store.add_documents(case_id, documents)
+    except Exception as error:
+        raise HTTPException(500, f"Document indexing failed: {error}") from error
+    return {"case_id": case_id, "indexed_documents": indexed}
 
 
 @app.get("/api/case/{case_id}")
 def get_case(case_id: str):
-    case = next((item for item in read_mock_cases() if item.get("id") == case_id), None)
+    case = next((item for item in read_database_cases() if item.get("id") == case_id), None)
+    case = case or next((item for item in read_mock_cases() if item.get("id") == case_id), None)
     if case is None:
         raise HTTPException(404, "Case not found")
     return case

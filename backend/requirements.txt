@@ -1,4 +1,19 @@
-fastapi>=0.100.0
-uvicorn>=0.22.0
-neo4j>=5.0.0
-python-dotenv>=1.0.0
+# API and database
+fastapi>=0.115.0
+uvicorn[standard]>=0.32.0
+neo4j>=5.26.0
+psycopg[binary]>=3.2.3
+python-dotenv>=1.0.1
+
+# RAG and document ingestion
+langchain>=0.3.0
+langchain-core>=0.3.0
+langchain-huggingface>=0.1.0
+langchain-postgres>=0.0.12
+huggingface-hub>=0.26.0
+pypdf>=5.1.0
+python-multipart>=0.0.12
+
+# Existing graph analytics and data pipeline
+networkx>=3.4
+faker>=33.0

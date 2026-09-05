@@ -1,8 +1,9 @@
 import { useEffect, useRef, useState } from "react";
 import cytoscape, { type Core, type NodeSingular } from "cytoscape";
 import "./GraphView.css";
+import { API_BASE_URL } from "../config";
 
-const API = "http://localhost:8000";
+const API = API_BASE_URL;
 
 type PersonDetails = {
   id: string;
@@ -135,7 +136,6 @@ export default function GraphView({
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const cyRef = useRef<Core | null>(null);
-  const modeRef = useRef(false);
   const focusRef = useRef<string | undefined>(focusPersonId);
   const hopRef = useRef(hopDistance);
   const onPersonSelectRef = useRef(onPersonSelect);
@@ -168,7 +168,7 @@ export default function GraphView({
           container: containerRef.current,
           elements: normalize(data.elements || []),
           style: [
-            { selector: "node", style: { label: "data(label)", "font-family": "'IBM Plex Mono', monospace", "font-size": 9, color: "#C7CDD6", "text-valign": "bottom", "text-margin-y": 7, "text-background-color": "#10151C", "text-background-opacity": 0.92, "text-background-padding": 2, width: "mapData(degree, 0, 0.1, 16, 46)", height: "mapData(degree, 0, 0.1, 16, 46)", "border-width": 1, "border-color": "#0B0E11" } },
+            { selector: "node", style: { label: "data(label)", "font-family": "'IBM Plex Mono', monospace", "font-size": 9, color: "#C7CDD6", "text-valign": "bottom", "text-margin-y": 7, "text-background-color": "#10151C", "text-background-opacity": 0.92, "text-background-padding": "2", width: "mapData(degree, 0, 0.1, 16, 46)", height: "mapData(degree, 0, 0.1, 16, 46)", "border-width": 1, "border-color": "#0B0E11" } },
             { selector: "node.tier-low", style: { "background-color": "#5B7A9D" } },
             { selector: "node.tier-mid", style: { "background-color": "#8A8F98" } },
             { selector: "node.tier-high", style: { "background-color": "#D9A441" } },
@@ -185,8 +185,8 @@ export default function GraphView({
         });
 
         const nodes = cy.nodes().sort((a, b) => (b.data("betweenness") || 0) - (a.data("betweenness") || 0));
-        nodes.forEach((node, i) => node.addClass(i < nodes.length * 0.1 ? "tier-high" : i < nodes.length * 0.35 ? "tier-mid" : "tier-low"));
-        nodes.forEach((node) => node.addClass("labeled"));
+        nodes.forEach((node, i) => { node.addClass(i < nodes.length * 0.1 ? "tier-high" : i < nodes.length * 0.35 ? "tier-mid" : "tier-low"); });
+        nodes.forEach((node) => { node.addClass("labeled"); });
         addClasses(cy, false);
 
         cy.on("tap", "node", async (event) => {
@@ -226,7 +226,7 @@ export default function GraphView({
       try {
         setLoading(true);
         setError("");
-        const url = `${API}/api/entity-graph?person_id=${encodeURIComponent(focusPersonId)}&hop=${hopDistance || 1}${caseId ? `&case_id=${encodeURIComponent(caseId)}` : ""}`;
+        const url = `${API}/api/entity-graph?person_id=${encodeURIComponent(focusPersonId!)}&hop=${hopDistance || 1}${caseId ? `&case_id=${encodeURIComponent(caseId)}` : ""}`;
         const response = await fetch(url);
         if (!response.ok) throw new Error(`Entity graph returned ${response.status}`);
         const data = await response.json();
@@ -237,7 +237,7 @@ export default function GraphView({
           container: containerRef.current,
           elements: normalize(data.elements || []),
           style: [
-            { selector: "node", style: { label: "data(label)", "font-family": "'IBM Plex Mono', monospace", "font-size": 9, color: "#D6DCE3", "text-valign": "bottom", "text-margin-y": 8, "text-background-color": "#0E1319", "text-background-opacity": 0.95, "text-background-padding": 2, width: "data(size)", height: "data(size)", "border-width": 1, "border-color": "#0B0E11", "background-image": "data(icon)", "background-fit": "contain", "background-clip": "node", "background-opacity": 1 } },
+            { selector: "node", style: { label: "data(label)", "font-family": "'IBM Plex Mono', monospace", "font-size": 9, color: "#D6DCE3", "text-valign": "bottom", "text-margin-y": 8, "text-background-color": "#0E1319", "text-background-opacity": 0.95, "text-background-padding": "2", width: "data(size)", height: "data(size)", "border-width": 1, "border-color": "#0B0E11", "background-image": "data(icon)", "background-fit": "contain", "background-clip": "node", "background-opacity": 1 } },
             { selector: "node.entity-person", style: { "background-color": "#D9A441", shape: "ellipse" } },
             { selector: "node.entity-phone", style: { "background-color": "#6689A9", shape: "round-rectangle" } },
             { selector: "node.entity-account", style: { "background-color": "#7F8791", shape: "rectangle" } },
@@ -247,7 +247,7 @@ export default function GraphView({
             { selector: "node.entity-event", style: { "background-color": "#8A8F98", shape: "ellipse" } },
             { selector: "node.entity-organization", style: { "background-color": "#8C7A9B", shape: "rectangle" } },
             { selector: "node.entity-case", style: { "background-color": "#A37B56", shape: "round-rectangle" } },
-            { selector: "edge", style: { width: 1.8, "line-color": "#536170", "curve-style": "bezier", opacity: 0.8, "target-arrow-shape": "triangle", "target-arrow-color": "#536170", label: "data(label)", "font-size": 7, color: "#7F8995", "text-background-color": "#0E1319", "text-background-opacity": 0.8, "text-background-padding": 2 } },
+            { selector: "edge", style: { width: "1.8", "line-color": "#536170", "curve-style": "bezier", opacity: 0.8, "target-arrow-shape": "triangle", "target-arrow-color": "#536170", label: "data(label)", "font-size": 7, color: "#7F8995", "text-background-color": "#0E1319", "text-background-opacity": 0.8, "text-background-padding": "2" } },
             { selector: "edge.focused", style: { width: 3, "line-color": "#D9A441", "target-arrow-color": "#D9A441", opacity: 1 } },
             { selector: "edge.edge-communication", style: { "line-style": "dashed" } },
             { selector: "edge.edge-transaction", style: { "line-style": "dashed" } },
@@ -284,7 +284,7 @@ export default function GraphView({
         });
         cyRef.current = cy;
         setError("");
-        focusNeighborhood(cy, focusPersonId, hopDistance || 1, true);
+        focusNeighborhood(cy, focusPersonId!, hopDistance || 1, true);
       } catch (err) {
         console.error(err);
         if (!cancelled) setError("Entity detail graph is unavailable. Add the /api/entity-graph endpoint to the backend.");

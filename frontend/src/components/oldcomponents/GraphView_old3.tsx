@@ -147,7 +147,7 @@ export default function GraphView({
                 "text-margin-y": 7,
                 "text-background-color": "#10151C",
                 "text-background-opacity": 0.92,
-                "text-background-padding": 2,
+                "text-background-padding": "2",
                 width: "data(size)",
                 height: "data(size)",
                 "border-width": 1,

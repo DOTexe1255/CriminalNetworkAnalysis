@@ -1,9 +1,0 @@
-# Backend API Dependencies
-fastapi>=0.100.0
-uvicorn>=0.22.0
-neo4j>=5.0.0
-python-dotenv>=1.0.0
-
-# Mock Data Generation & Graph Analytics Dependencies
-networkx>=3.0
-faker>=18.0.0

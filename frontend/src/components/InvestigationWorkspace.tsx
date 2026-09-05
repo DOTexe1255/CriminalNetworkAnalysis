@@ -9,8 +9,9 @@ import TimelineView from "./TimelineView";
 import MapView from "./MapView";
 import PersonDossier from "./PersonDossier";
 import "./InvestigationWorkspace.css";
+import { API_BASE_URL } from "../config";
 
-const API = "http://localhost:8000";
+const API = API_BASE_URL;
 
 type AnalysisView = "graph" | "timeline" | "map";
 type WorkspaceProps = { initialCaseId?: string; onBack?: () => void };
@@ -29,6 +30,47 @@ export default function InvestigationWorkspace({ initialCaseId = "case_00000", o
   const [graphFocusId, setGraphFocusId] = useState<string | undefined>();
   const [hopDistance, setHopDistance] = useState<0 | 1 | 2>(0);
   const [edge, setEdge] = useState<EdgeDetails | null>(null);
+  const [ragAnswer, setRagAnswer] = useState("");
+  const [ragSources, setRagSources] = useState<Array<{ title: string; event_date?: string | null }>>([]);
+  const [ragLoading, setRagLoading] = useState(false);
+
+  async function askCase() {
+    if (!query.trim()) return;
+    setRagLoading(true);
+    setRagAnswer("");
+    try {
+      const response = await fetch(`${API}/api/rag/query`, {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ case_id: caseId, question: query.trim() }),
+      });
+      const data = await response.json();
+      setRagAnswer(response.ok ? data.answer : data.detail || "Case query is unavailable.");
+      setRagSources(response.ok ? data.sources || [] : []);
+    } catch {
+      setRagAnswer("Case query is unavailable. Check that the API and Hugging Face token are configured.");
+      setRagSources([]);
+    } finally {
+      setRagLoading(false);
+    }
+  }
+
+  async function summarizeCase() {
+    setRagLoading(true);
+    setRagAnswer("");
+    setQuery("Case summary");
+    try {
+      const response = await fetch(`${API}/api/case/${encodeURIComponent(caseId)}/summary`);
+      const data = await response.json();
+      setRagAnswer(response.ok ? data.answer : data.detail || "Case summary is unavailable.");
+      setRagSources(response.ok ? data.sources || [] : []);
+    } catch {
+      setRagAnswer("Case summary is unavailable. Check the API and Hugging Face token.");
+      setRagSources([]);
+    } finally {
+      setRagLoading(false);
+    }
+  }
 
   useEffect(() => {
     if (!finding?.person_id) {
@@ -69,17 +111,13 @@ export default function InvestigationWorkspace({ initialCaseId = "case_00000", o
       .finally(() => setEvidenceLoading(false));
   }, [finding]);
 
-  const handleFindingSelect = useCallback((nextFinding: Finding) => {
-    setFinding(nextFinding);
-    setActiveEvidenceId(null);
-    setView("graph");
-  }, []);
-
   useEffect(() => {
     setFinding(null);
     setPerson(null);
     setEvidence([]);
     setEdge(null);
+    setRagAnswer("");
+    setRagSources([]);
   }, [caseId]);
 
   const handlePersonSelect = useCallback((nextPerson: PersonDetails) => {
@@ -120,6 +158,8 @@ export default function InvestigationWorkspace({ initialCaseId = "case_00000", o
       <InvestigationHeader
         query={query}
         onQueryChange={setQuery}
+        onQuerySubmit={askCase}
+        onSummary={summarizeCase}
         caseId={caseId}
         onCaseChange={setCaseId}
         onBack={onBack}
@@ -198,6 +238,15 @@ export default function InvestigationWorkspace({ initialCaseId = "case_00000", o
               </div>
             </div>
           </section>
+
+          {(ragLoading || ragAnswer) && (
+            <section className="case-query-result">
+              <div className="eyebrow">CASE QUESTION / {caseId}</div>
+              <h2>{ragLoading ? "Searching indexed case material..." : "Evidence-grounded answer"}</h2>
+              {!ragLoading && <p>{ragAnswer}</p>}
+              {ragSources.length > 0 && <small>Sources: {ragSources.map((source) => `${source.title}${source.event_date ? ` (${source.event_date})` : ""}`).join(" · ")}</small>}
+            </section>
+          )}
 
           <div className="analysis-stage">
             {view === "graph" && (
