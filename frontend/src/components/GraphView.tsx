@@ -33,7 +33,10 @@ type Props = {
   contextType?: string;
   contextPerson?: string;
   caseId?: string;
+  onEdgeSelect?: (edge: EdgeDetails) => void;
 };
+
+export type EdgeDetails = { id: string; source: string; target: string; label?: string; kind?: string; relationship?: string };
 
 const ICONS: Record<string, string> = {
   person: `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 24 24"><circle cx="12" cy="7" r="3.2" fill="none" stroke="#11161c" stroke-width="1.8"/><path d="M5.5 20c.7-4.2 3-6.2 6.5-6.2s5.8 2 6.5 6.2" fill="none" stroke="#11161c" stroke-width="1.8" stroke-linecap="round"/></svg>`,
@@ -128,6 +131,7 @@ export default function GraphView({
   contextType,
   contextPerson,
   caseId,
+  onEdgeSelect,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
   const cyRef = useRef<Core | null>(null);
@@ -273,7 +277,11 @@ export default function GraphView({
         });
         cy.on("mouseover", "node", (e) => e.target.addClass("hovered"));
         cy.on("mouseout", "node", (e) => e.target.removeClass("hovered"));
-        cy.on("tap", "edge", (e) => { cy.edges().removeClass("focused"); e.target.addClass("focused"); });
+        cy.on("tap", "edge", (e) => {
+          cy.edges().removeClass("focused");
+          e.target.addClass("focused");
+          onEdgeSelect?.(e.target.data() as EdgeDetails);
+        });
         cyRef.current = cy;
         setError("");
         focusNeighborhood(cy, focusPersonId, hopDistance || 1, true);

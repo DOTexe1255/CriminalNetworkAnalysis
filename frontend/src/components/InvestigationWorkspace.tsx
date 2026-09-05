@@ -1,5 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import GraphView from "./GraphView";
+import GraphView, { type EdgeDetails } from "./GraphView";
 import FindingsPanel, { humanType, type Finding } from "./FindingsPanel";
 import EntityProfile, { type PersonDetails } from "./EntityProfile";
 import EvidencePanel, { type Evidence } from "./EvidencePanel";
@@ -13,20 +13,22 @@ import "./InvestigationWorkspace.css";
 const API = "http://localhost:8000";
 
 type AnalysisView = "graph" | "timeline" | "map";
+type WorkspaceProps = { initialCaseId?: string; onBack?: () => void };
 
-export default function InvestigationWorkspace() {
+export default function InvestigationWorkspace({ initialCaseId = "case_00000", onBack }: WorkspaceProps) {
   const [person, setPerson] = useState<PersonDetails | null>(null);
   const [finding, setFinding] = useState<Finding | null>(null);
   const [evidence, setEvidence] = useState<Evidence[]>([]);
   const [activeEvidenceId, setActiveEvidenceId] = useState<string | null>(null);
   const [view, setView] = useState<AnalysisView>("graph");
   const [query, setQuery] = useState("");
-  const [caseId, setCaseId] = useState("case_00000");
+  const [caseId, setCaseId] = useState(initialCaseId);
   const [profileLoading, setProfileLoading] = useState(false);
   const [evidenceLoading, setEvidenceLoading] = useState(false);
   const [profileOpen, setProfileOpen] = useState(false);
   const [graphFocusId, setGraphFocusId] = useState<string | undefined>();
   const [hopDistance, setHopDistance] = useState<0 | 1 | 2>(0);
+  const [edge, setEdge] = useState<EdgeDetails | null>(null);
 
   useEffect(() => {
     if (!finding?.person_id) {
@@ -77,6 +79,7 @@ export default function InvestigationWorkspace() {
     setFinding(null);
     setPerson(null);
     setEvidence([]);
+    setEdge(null);
   }, [caseId]);
 
   const handlePersonSelect = useCallback((nextPerson: PersonDetails) => {
@@ -119,6 +122,7 @@ export default function InvestigationWorkspace() {
         onQueryChange={setQuery}
         caseId={caseId}
         onCaseChange={setCaseId}
+        onBack={onBack}
       />
 
       <div className="trace-main">
@@ -206,6 +210,7 @@ export default function InvestigationWorkspace() {
                 contextType={finding?.finding_type}
                 contextPerson={finding?.person_name}
                 caseId={caseId}
+                onEdgeSelect={setEdge}
               />
             )}
 
@@ -252,6 +257,10 @@ export default function InvestigationWorkspace() {
         </main>
 
         <aside className="trace-inspector">
+          <section className="edge-detail-panel">
+            <div className="section-label">SELECTED CONNECTION</div>
+            {edge ? <><strong>{edge.label || edge.relationship || "Relationship"}</strong><p>{edge.source} <span>→</span> {edge.target}</p><small>{edge.kind ? `${edge.kind.toUpperCase()} LINK` : "ENTITY RELATIONSHIP"}</small></> : <div className="edge-empty">Select an edge in entity detail to inspect how these entities are connected.</div>}
+          </section>
           <EntityProfile
             person={person}
             finding={finding}

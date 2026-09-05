@@ -1,8 +1,12 @@
 import os
+import json
+from pathlib import Path
+from typing import Any
 from fastapi import FastAPI, HTTPException
 from fastapi.middleware.cors import CORSMiddleware
 from neo4j import GraphDatabase
 from dotenv import load_dotenv
+from pydantic import BaseModel, Field
 
 load_dotenv()
 
@@ -14,6 +18,28 @@ if not all([NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD]):
     raise RuntimeError("Missing NEO4J_URI, NEO4J_USERNAME or NEO4J_PASSWORD in .env")
 
 driver = GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD))
+CASE_STORE = Path(__file__).with_name("mock_cases.json")
+
+
+class CaseCreate(BaseModel):
+    name: str = Field(min_length=2)
+    description: str = ""
+    status: str = "Active"
+    priority: str = "Medium"
+    lead: str = ""
+    documents: list[dict[str, Any]] = []
+    evidence: list[dict[str, Any]] = []
+
+
+def read_mock_cases() -> list[dict[str, Any]]:
+    try:
+        return json.loads(CASE_STORE.read_text(encoding="utf-8"))
+    except (FileNotFoundError, json.JSONDecodeError):
+        return []
+
+
+def write_mock_cases(cases: list[dict[str, Any]]) -> None:
+    CASE_STORE.write_text(json.dumps(cases, indent=2), encoding="utf-8")
 
 app = FastAPI(title="Trace — Criminal Network Intelligence API")
 
@@ -215,19 +241,46 @@ def get_finding_evidence(finding_id: str):
 
 @app.get("/api/cases")
 def get_cases():
-    query = """
-    MATCH (c:Case)
-    OPTIONAL MATCH (c)-[:ASSOCIATED_WITH]->(p:Person)
-    OPTIONAL MATCH (c)-[:HAS_FINDING]->(f:Finding)
-    RETURN c.id AS id,
-           c.name AS name,
-           c.description AS description,
-           count(DISTINCT p) AS person_count,
-           count(DISTINCT f) AS finding_count
-    ORDER BY c.name
-    """
-    with driver.session() as session:
-        return [dict(r) for r in session.run(query)]
+    cases = read_mock_cases()
+    try:
+        query = """
+        MATCH (c:Case)
+        OPTIONAL MATCH (c)-[:ASSOCIATED_WITH]->(p:Person)
+        OPTIONAL MATCH (c)-[:HAS_FINDING]->(f:Finding)
+        RETURN c.id AS id, c.name AS name, c.description AS description,
+               count(DISTINCT p) AS person_count, count(DISTINCT f) AS finding_count
+        ORDER BY c.name
+        """
+        with driver.session() as session:
+            neo4j_cases = [dict(r) for r in session.run(query)]
+        known = {case["id"] for case in cases}
+        cases.extend(case for case in neo4j_cases if case.get("id") not in known)
+    except Exception:
+        pass
+    return cases
+
+
+@app.post("/api/cases")
+def create_case(payload: CaseCreate):
+    cases = read_mock_cases()
+    case = {
+        "id": f"case_{len(cases):05d}",
+        **payload.model_dump(),
+        "created_at": __import__("datetime").date.today().isoformat(),
+        "person_count": 0,
+        "finding_count": 0,
+    }
+    cases.insert(0, case)
+    write_mock_cases(cases)
+    return case
+
+
+@app.get("/api/case/{case_id}")
+def get_case(case_id: str):
+    case = next((item for item in read_mock_cases() if item.get("id") == case_id), None)
+    if case is None:
+        raise HTTPException(404, "Case not found")
+    return case
 
 
 @app.get("/api/case/{case_id}/findings")

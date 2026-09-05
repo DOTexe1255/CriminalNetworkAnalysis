@@ -1,0 +1,34 @@
+[
+  {
+    "id": "case_00000",
+    "name": "Operation Trinetra",
+    "description": "Fictional Maharashtra-based network investigation linking encrypted communications, shell firms and logistics handlers.",
+    "status": "Active",
+    "priority": "High",
+    "lead": "Maharashtra Cyber Cell",
+    "created_at": "2026-09-01",
+    "person_count": 42,
+    "finding_count": 8,
+    "documents": [
+      {"name": "trinetra-case-brief.pdf", "type": "application/pdf", "size": 248000}
+    ],
+    "evidence": [
+      {"type": "Communication", "description": "Recurring contact cluster between Mumbai and Pune phone groups during late-night windows.", "source": "CDR-MH-014"}
+    ]
+  },
+  {
+    "id": "case_00001",
+    "name": "Project Kala Dhan",
+    "description": "Fictional financial investigation tracing layered transfers through mule accounts and freight vehicles across Delhi NCR.",
+    "status": "Review",
+    "priority": "Medium",
+    "lead": "Financial Intelligence Unit",
+    "created_at": "2026-08-28",
+    "person_count": 18,
+    "finding_count": 4,
+    "documents": [],
+    "evidence": [
+      {"type": "Transaction", "description": "Repeated IMPS transfers across three account clusters followed by cash withdrawals in Noida.", "source": "FIU-IMPS-07"}
+    ]
+  }
+]
