@@ -130,3 +130,154 @@
 }
 
 @keyframes trace-spin{to{transform:rotate(360deg)}}
+
+/* Add these rules to your existing GraphView.css */
+
+.graph-mode-toggle {
+  position: absolute;
+  left: 16px;
+  top: 16px;
+  z-index: 12;
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid #29323c;
+  background: rgba(15, 20, 26, 0.94);
+}
+
+.graph-mode-toggle button {
+  border: 1px solid transparent;
+  background: transparent;
+  color: #6f7b87;
+  padding: 6px 9px;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 7px;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+}
+
+.graph-mode-toggle button:hover:not(:disabled) {
+  color: #c7cdd6;
+  border-color: #39434e;
+}
+
+.graph-mode-toggle button.active {
+  border-color: #80652f;
+  color: #d9a441;
+  background: #1a1c1e;
+}
+
+.graph-mode-toggle button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.entity-legend {
+  max-width: 180px;
+}
+
+.entity-legend span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.entity-legend .legend-dot {
+  width: 7px;
+  height: 7px;
+  display: inline-block;
+  border-radius: 50%;
+  flex: 0 0 auto;
+}
+
+.entity-legend .legend-dot.phone { background: #6689a9; }
+.entity-legend .legend-dot.account { background: #7f8791; }
+.entity-legend .legend-dot.vehicle { background: #9a8060; }
+.entity-legend .legend-dot.location { background: #718e78; }
+.entity-legend .legend-dot.event { background: #8a8f98; }
+.entity-legend .legend-dot.org { background: #8c7a9b; }
+.entity-legend .legend-dot.person { background: #d9a441; }
+
+/* Relationship labels are intentionally quiet until an edge is selected. */
+.trace-graph-wrap .graph-canvas {
+  cursor: default;
+}
+/* Add these rules to your existing GraphView.css */
+
+.graph-mode-toggle {
+  position: absolute;
+  left: 16px;
+  top: 16px;
+  z-index: 12;
+  display: flex;
+  gap: 2px;
+  padding: 3px;
+  border: 1px solid #29323c;
+  background: rgba(15, 20, 26, 0.94);
+}
+
+.graph-mode-toggle button {
+  border: 1px solid transparent;
+  background: transparent;
+  color: #6f7b87;
+  padding: 6px 9px;
+  font-family: "IBM Plex Mono", monospace;
+  font-size: 7px;
+  letter-spacing: 0.05em;
+  cursor: pointer;
+}
+
+.graph-mode-toggle button:hover:not(:disabled) {
+  color: #c7cdd6;
+  border-color: #39434e;
+}
+
+.graph-mode-toggle button.active {
+  border-color: #80652f;
+  color: #d9a441;
+  background: #1a1c1e;
+}
+
+.graph-mode-toggle button:disabled {
+  opacity: 0.35;
+  cursor: default;
+}
+
+.entity-legend {
+  max-width: 180px;
+}
+
+.entity-legend span {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.entity-legend .legend-dot {
+  width: 7px;
+  height: 7px;
+  display: inline-block;
+  border-radius: 50%;
+  flex: 0 0 auto;
+}
+
+.entity-legend .legend-dot.phone { background: #6689a9; }
+.entity-legend .legend-dot.account { background: #7f8791; }
+.entity-legend .legend-dot.vehicle { background: #9a8060; }
+.entity-legend .legend-dot.location { background: #718e78; }
+.entity-legend .legend-dot.event { background: #8a8f98; }
+.entity-legend .legend-dot.org { background: #8c7a9b; }
+.entity-legend .legend-dot.person { background: #d9a441; }
+
+/* Relationship labels are intentionally quiet until an edge is selected. */
+.trace-graph-wrap .graph-canvas {
+  cursor: default;
+}
+/* Append to existing GraphView.css */
+.graph-mode-toggle{position:absolute;left:16px;top:16px;z-index:30;display:flex;gap:2px;padding:3px;border:1px solid #29323c;background:rgba(15,20,26,.96);box-shadow:0 8px 22px rgba(0,0,0,.22)}
+.graph-mode-toggle button{border:1px solid transparent;background:transparent;color:#6f7b87;padding:6px 9px;font-family:"IBM Plex Mono",monospace;font-size:7px;letter-spacing:.05em;cursor:pointer}
+.graph-mode-toggle button:hover:not(:disabled){color:#c7cdd6;border-color:#39434e}.graph-mode-toggle button.active{border-color:#80652f;color:#d9a441;background:#1a1c1e}.graph-mode-toggle button:disabled{opacity:.35;cursor:default}
+.graph-status{position:absolute;left:16px;top:56px;z-index:29;max-width:360px;padding:7px 10px;border:1px solid #303a45;background:rgba(12,17,23,.94);color:#aeb7c2;font:7px "IBM Plex Mono",monospace;letter-spacing:.04em;pointer-events:none;box-shadow:0 8px 22px rgba(0,0,0,.18)}
+.graph-status.graph-error{color:#d7b37b;border-color:#6b5630;pointer-events:auto}
+.graph-context{z-index:20!important;pointer-events:none}
+.graph-legend{z-index:20!important}.entity-legend{max-width:180px}.entity-legend span{display:flex;align-items:center;gap:6px}.entity-legend .legend-dot{width:7px;height:7px;display:inline-block;border-radius:50%;flex:0 0 auto}.entity-legend .legend-dot.person{background:#d9a441}.entity-legend .legend-dot.phone{background:#6689a9}.entity-legend .legend-dot.account{background:#7f8791}.entity-legend .legend-dot.vehicle{background:#9a8060}.entity-legend .legend-dot.device{background:#657a78}.entity-legend .legend-dot.location{background:#718e78}.entity-legend .legend-dot.event{background:#8a8f98}.entity-legend .legend-dot.org{background:#8c7a9b}.entity-legend .legend-dot.case{background:#a37b56}
