@@ -9,7 +9,7 @@ services:
     volumes:
       - trace_postgres_data:/var/lib/postgresql/data
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U trace -d trace"]
+      test: [ "CMD-SHELL", "pg_isready -U trace -d trace" ]
       interval: 5s
       timeout: 5s
       retries: 20
@@ -28,7 +28,7 @@ services:
       - trace_neo4j_data:/data
       - trace_neo4j_logs:/logs
     healthcheck:
-      test: ["CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:7474 || exit 1"]
+      test: [ "CMD-SHELL", "wget --no-verbose --tries=1 --spider http://localhost:7474 || exit 1" ]
       interval: 10s
       timeout: 5s
       retries: 20
@@ -55,7 +55,7 @@ services:
       neo4j:
         condition: service_healthy
     ports:
-      - "8000:8000"
+      - "9000:8000"
 
   seed:
     env_file:
@@ -63,7 +63,7 @@ services:
     build:
       context: ./backend
     container_name: trace-seed
-    command: ["python", "-m", "seed.seed_database"]
+    command: [ "python", "-m", "seed.seed_database" ]
     environment:
       NEO4J_URI: bolt://neo4j:7687
       NEO4J_USERNAME: neo4j

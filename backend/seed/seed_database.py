@@ -1,17 +1,31 @@
 from __future__ import annotations
 
+"""Seed Trace with the original SIH criminal-network dataset.
+
+This replaces the newer toy `build_sample_cases(100)` seed with the original
+258-person graph, while preserving the current PostgreSQL/RAG infrastructure.
+
+Flow:
+    generate_mock_data -> load_to_neo4j -> run_analytics
+                         -> PostgreSQL case/document seed
+"""
+
+import csv
 import os
+import shutil
+import sys
 import time
+from datetime import datetime
+from pathlib import Path
 
 import psycopg
 from psycopg.types.json import Jsonb
 from neo4j import GraphDatabase
 
 from services.vector_store import VectorStore
-from seed.sample_cases import build_sample_cases
 
-
-CASES = build_sample_cases(100)
+ROOT = Path(__file__).resolve().parents[1]
+DATA_DIR = ROOT / "output_v2"
 
 
 def wait_for_postgres(url: str) -> None:
@@ -38,13 +52,61 @@ def wait_for_neo4j(uri: str, user: str, password: str) -> None:
             time.sleep(2)
 
 
+def clear_neo4j(uri: str, user: str, password: str) -> None:
+    """Remove the previous toy/demo graph before restoring the real dataset."""
+    driver = GraphDatabase.driver(uri, auth=(user, password))
+    try:
+        with driver.session() as session:
+            session.run("MATCH (n) DETACH DELETE n").consume()
+    finally:
+        driver.close()
+
+
+def generate_dataset() -> None:
+    """Generate the deterministic original CSV dataset into /app/output_v2."""
+    if DATA_DIR.exists():
+        shutil.rmtree(DATA_DIR)
+
+    # The generator intentionally executes its generation at module level.
+    module_path = ROOT / "data_pipeline" / "generate_mock_data.py"
+    namespace = {"__name__": "__main__"}
+    exec(compile(module_path.read_text(encoding="utf-8"), str(module_path), "exec"), namespace)
+
+
+def load_neo4j() -> None:
+    from data_pipeline import load_to_neo4j
+
+    load_to_neo4j.main()
+
+
+def run_analytics() -> None:
+    from data_pipeline import run_analytics
+
+    run_analytics.main()
+
+
+def read_csv(name: str) -> list[dict[str, str]]:
+    with (DATA_DIR / name).open(newline="", encoding="utf-8") as handle:
+        return list(csv.DictReader(handle))
+
+
 def seed_postgres(database_url: str) -> None:
+    cases = read_csv("cases.csv")
+    evidence = read_csv("evidence.csv")
+
+    evidence_by_case: dict[str, list[dict[str, str]]] = {}
+    for item in evidence:
+        evidence_by_case.setdefault(item["case_id"], []).append(item)
+
     vector_store = VectorStore()
     vector_store.initialize()
+
     with psycopg.connect(database_url) as connection:
+        # The current app expects this richer case table.
+        connection.execute("DROP TABLE IF EXISTS cases CASCADE")
         connection.execute(
             """
-            CREATE TABLE IF NOT EXISTS cases (
+            CREATE TABLE cases (
                 id TEXT PRIMARY KEY,
                 name TEXT NOT NULL,
                 case_number TEXT NOT NULL UNIQUE,
@@ -61,104 +123,101 @@ def seed_postgres(database_url: str) -> None:
             )
             """
         )
-        for column in ("narratives", "lead_details", "evidence", "documents"):
-            connection.execute(f"ALTER TABLE cases ADD COLUMN IF NOT EXISTS {column} JSONB NOT NULL DEFAULT '[]'::jsonb")
-        for case in CASES:
+
+        for case in cases:
+            case_evidence = evidence_by_case.get(case["id"], [])
+            timestamps = [item["timestamp"][:10] for item in case_evidence if item.get("timestamp")]
+            event_date = min(timestamps) if timestamps else case["created_at"][:10]
+
+            # Keep the Postgres case representation compact; the full evidence
+            # remains in Neo4j and is fetched through the evidence endpoints.
+            evidence_preview = [
+                {
+                    "id": item["id"],
+                    "type": item["evidence_type"],
+                    "date": item["timestamp"][:10],
+                    "description": item["description"],
+                    "source_record_id": item["source_record_id"],
+                }
+                for item in case_evidence[:50]
+            ]
+
+            narrative = {
+                "title": "Synthetic investigation dataset",
+                "date": event_date,
+                "text": (
+                    f"{case['title']} is a synthetic criminal-network investigation "
+                    "containing linked people, communications, transactions, events, "
+                    "and evidence for investigator analysis."
+                ),
+            }
+
+            lead = "District Intelligence Unit"
+            priority = "High" if case["id"] == "case_00000" else "Medium"
+            document = (
+                f"{case['title']} ({case['case_number']}) — {case['case_type']}. "
+                f"Agency: {case['agency']}. Status: {case['status']}. "
+                "This is synthetic demonstration data for the Trace investigation platform."
+            )
+
             connection.execute(
                 """
-                INSERT INTO cases (id, name, case_number, description, status, priority, lead, created_at, event_date, narratives, lead_details, evidence, documents)
-                VALUES (%(id)s, %(name)s, %(case_number)s, %(description)s, %(status)s, %(priority)s,
-                    %(lead)s, %(created_at)s, %(event_date)s, %(narratives)s, %(lead_details)s, %(evidence)s, %(documents)s)
-                ON CONFLICT (id) DO UPDATE SET name = EXCLUDED.name, description = EXCLUDED.description,
-                    status = EXCLUDED.status, priority = EXCLUDED.priority, lead = EXCLUDED.lead,
-                    event_date = EXCLUDED.event_date, narratives = EXCLUDED.narratives,
-                    lead_details = EXCLUDED.lead_details, evidence = EXCLUDED.evidence, documents = EXCLUDED.documents
+                INSERT INTO cases
+                    (id, name, case_number, description, status, priority, lead,
+                     created_at, event_date, narratives, lead_details, evidence, documents)
+                VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
                 """,
-                {**case, "narratives": Jsonb(case["narratives"]), "lead_details": Jsonb(case["lead_details"]), "evidence": Jsonb(case["evidence"]), "documents": Jsonb(case["documents"])},
+                (
+                    case["id"],
+                    case["title"],
+                    case["case_number"],
+                    f"{case['case_type']} investigation handled by {case['agency']}.",
+                    case["status"],
+                    priority,
+                    lead,
+                    case["created_at"][:10],
+                    event_date,
+                    Jsonb([narrative]),
+                    Jsonb([{"name": lead, "unit": case["agency"], "role": "Case Lead"}]),
+                    Jsonb(evidence_preview),
+                    Jsonb([]),
+                ),
             )
         connection.commit()
 
-    for case in CASES:
-        vector_store.delete_case_documents(case["id"])
-        vector_store.add_documents(case["id"], [
-            {"title": case["name"], "content": case["document"], "event_date": case["event_date"], "source_type": "synthetic-case"},
-            *[{"title": item["title"], "content": item["text"], "event_date": item["date"], "source_type": "narrative"} for item in case["narratives"]],
-            *[{"title": item["type"], "content": item["description"], "event_date": item["date"], "source_type": "evidence"} for item in case["evidence"]],
-        ])
+    # Replace stale vector documents from the toy dataset.
+    with psycopg.connect(database_url) as connection:
+        connection.execute("DELETE FROM case_documents")
+        connection.commit()
 
-
-def seed_neo4j(uri: str, user: str, password: str) -> None:
-    driver = GraphDatabase.driver(uri, auth=(user, password))
-    try:
-        with driver.session() as session:
-            session.run("CREATE CONSTRAINT case_id IF NOT EXISTS FOR (c:Case) REQUIRE c.id IS UNIQUE")
-            session.run("CREATE CONSTRAINT person_id IF NOT EXISTS FOR (p:Person) REQUIRE p.id IS UNIQUE")
-            session.run("CREATE CONSTRAINT evidence_id IF NOT EXISTS FOR (e:Evidence) REQUIRE e.id IS UNIQUE")
-            for index, case in enumerate(CASES):
-                people = [
-                    "person_00001" if index % 4 == 0 else f"person_{(index * 6) + 1:05d}",
-                    "person_00002" if index % 5 == 0 else f"person_{(index * 6) + 2:05d}",
-                    *[f"person_{(index * 6) + offset:05d}" for offset in range(3, 7)],
-                ]
-                session.run(
-                    """
-                    MERGE (c:Case {id: $case_id})
-                    SET c.name = $name, c.title = $name, c.case_number = $case_number,
-                        c.description = $description, c.status = $status, c.priority = $priority,
-                        c.created_at = datetime($created_at), c.event_date = date($event_date)
-                    WITH c
-                    UNWIND $people AS person_id
-                    MERGE (p:Person {id: person_id})
-                    ON CREATE SET p.full_name = replace(person_id, '_', ' '),
-                                  p.degree_centrality = 0.1, p.betweenness_centrality = 0.1,
-                                  p.community_id = 1
-                    MERGE (c)-[:ASSOCIATED_WITH]->(p)
-                    """,
-                    case_id=case["id"], name=case["name"], case_number=case["case_number"],
-                    description=case["description"], status=case["status"], priority=case["priority"],
-                    created_at=f"{case['created_at']}T00:00:00Z", event_date=case["event_date"], people=people,
-                )
-                session.run(
-                    """
-                    MATCH (a:Person {id: $person_a}), (b:Person {id: $person_b})
-                    MERGE (phone_a:Phone {id: $phone_a})
-                    MERGE (phone_b:Phone {id: $phone_b})
-                    SET phone_a.number = $phone_a, phone_b.number = $phone_b
-                    MERGE (a)-[:OWNS]->(phone_a)
-                    MERGE (b)-[:OWNS]->(phone_b)
-                    MERGE (phone_a)-[:COMMUNICATED {timestamp: datetime($event_date), duration: 120}]->(phone_b)
-                    """,
-                    person_a=people[0], person_b=people[1], phone_a=f"phone_{index * 3 + 1:05d}",
-                    phone_b=f"phone_{index * 3 + 2:05d}", event_date=f"{case['event_date']}T00:00:00Z",
-                )
-                for person_a, person_b in zip(people[1:], people[2:]):
-                    session.run(
-                        """
-                        MATCH (a:Person {id: $person_a}), (b:Person {id: $person_b})
-                        MERGE (phone_a:Phone {id: $phone_a})
-                        MERGE (phone_b:Phone {id: $phone_b})
-                        MERGE (a)-[:OWNS]->(phone_a)
-                        MERGE (b)-[:OWNS]->(phone_b)
-                        MERGE (phone_a)-[:COMMUNICATED {timestamp: datetime($event_date), duration: 240}]->(phone_b)
-                        """,
-                        person_a=person_a, person_b=person_b,
-                        phone_a=f"phone_{index * 10 + len(person_a):05d}", phone_b=f"phone_{index * 10 + len(person_b):05d}",
-                        event_date=f"{case['event_date']}T00:00:00Z",
-                    )
-                session.run(
-                    """
-                    MERGE (e:Evidence {id: $evidence_id})
-                    SET e.evidence_type = 'Synthetic case record', e.timestamp = datetime($event_date),
-                        e.description = $description, e.source_record_id = $case_id
-                    WITH e
-                    MATCH (c:Case {id: $case_id})
-                    MERGE (c)-[:HAS_EVIDENCE]->(e)
-                    """,
-                    evidence_id=f"evidence_{index + 1:05d}", case_id=case["id"],
-                    event_date=f"{case['event_date']}T00:00:00Z", description=case["document"],
-                )
-    finally:
-        driver.close()
+    # Add a compact, useful RAG corpus: case summary + evidence records.
+    # Full evidence remains in Neo4j, so RAG does not need to duplicate all 7k+
+    # records into the case JSON stored by PostgreSQL.
+    for case in cases:
+        case_id = case["id"]
+        case_evidence = evidence_by_case.get(case_id, [])
+        docs = [
+            {
+                "title": case["title"],
+                "content": (
+                    f"Case {case['case_number']}: {case['title']}. "
+                    f"Agency: {case['agency']}. Type: {case['case_type']}. "
+                    f"Status: {case['status']}. Synthetic investigation dataset."
+                ),
+                "event_date": case["created_at"][:10],
+                "source_type": "synthetic-case",
+            }
+        ]
+        docs.extend(
+            {
+                "title": item["evidence_type"],
+                "content": item["description"],
+                "event_date": item["timestamp"][:10],
+                "source_type": "evidence",
+            }
+            for item in case_evidence
+        )
+        vector_store.add_documents(case_id, docs)
 
 
 def main() -> None:
@@ -166,11 +225,26 @@ def main() -> None:
     neo4j_uri = os.getenv("NEO4J_URI", "bolt://neo4j:7687")
     neo4j_user = os.getenv("NEO4J_USERNAME", "neo4j")
     neo4j_password = os.getenv("NEO4J_PASSWORD", "tracepassword")
+
     wait_for_postgres(database_url)
     wait_for_neo4j(neo4j_uri, neo4j_user, neo4j_password)
+
+    print("\n=== TRACE ORIGINAL DATASET SEED ===")
+    print("1/4 Generating original deterministic dataset...")
+    generate_dataset()
+
+    print("2/4 Resetting and loading Neo4j graph...")
+    clear_neo4j(neo4j_uri, neo4j_user, neo4j_password)
+    load_neo4j()
+
+    print("3/4 Running graph analytics...")
+    run_analytics()
+
+    print("4/4 Seeding current PostgreSQL/RAG case layer...")
     seed_postgres(database_url)
-    seed_neo4j(neo4j_uri, neo4j_user, neo4j_password)
-    print(f"Seeded {len(CASES)} synthetic cases into PostgreSQL and Neo4j")
+
+    print("\n=== SEED COMPLETE ===")
+    print("Original dataset restored: 258 people, 3 cases, full graph + analytics.")
 
 
 if __name__ == "__main__":
