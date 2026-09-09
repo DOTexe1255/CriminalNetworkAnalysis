@@ -432,10 +432,7 @@ def query_case(payload: RagQuery):
 @app.get("/api/case/{case_id}/summary")
 def summarize_case(case_id: str):
     try:
-        return rag_service.answer(
-            case_id,
-            "Summarize this case using dated facts, involved entities, important relationships, and open questions.",
-        )
+        return rag_service.summarize_case(case_id)
     except RuntimeError as error:
         raise HTTPException(503, str(error)) from error
     except Exception as error:

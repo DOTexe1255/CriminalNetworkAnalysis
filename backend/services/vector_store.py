@@ -1,4 +1,4 @@
-"""PostgreSQL + pgvector storage for case documents and evidence."""
+"""PostgreSQL + pgvector storage for Trace case documents and evidence."""
 
 from __future__ import annotations
 
@@ -131,7 +131,18 @@ class VectorStore:
             connection.execute("DELETE FROM case_documents WHERE case_id = %s", (case_id,))
             connection.commit()
 
-    def similarity_search(self, case_id: str, query: str, limit: int = 5) -> list[dict[str, Any]]:
+    @staticmethod
+    def _row_to_document(row: Any) -> dict[str, Any]:
+        return {
+            "title": row[0],
+            "content": row[1],
+            "source_type": row[2],
+            "event_date": row[3].isoformat() if row[3] else None,
+            "metadata": row[4] or {},
+            "similarity": float(row[5] or 0),
+        }
+
+    def similarity_search(self, case_id: str, query: str, limit: int = 8) -> list[dict[str, Any]]:
         vector = self.embed_query(query)
         with psycopg.connect(self.database_url) as connection:
             rows = connection.execute(
@@ -143,14 +154,57 @@ class VectorStore:
                 ORDER BY embedding <=> %s::vector
                 LIMIT %s
                 """,
-                ("[" + ",".join(str(value) for value in vector) + "]", case_id,
-                 "[" + ",".join(str(value) for value in vector) + "]", limit),
+                (
+                    "[" + ",".join(str(value) for value in vector) + "]",
+                    case_id,
+                    "[" + ",".join(str(value) for value in vector) + "]",
+                    limit,
+                ),
             ).fetchall()
-        return [
-            {
-                "title": row[0], "content": row[1], "source_type": row[2],
-                "event_date": row[3].isoformat() if row[3] else None,
-                "metadata": row[4], "similarity": float(row[5] or 0),
-            }
-            for row in rows
-        ]
+        return [self._row_to_document(row) for row in rows]
+
+    def case_summary_search(self, case_id: str, limit: int = 12) -> list[dict[str, Any]]:
+        """Return a diverse evidence sample for summaries.
+
+        Generic semantic top-k tends to over-select one evidence type for a broad
+        summary question. This query deliberately takes up to three recent records
+        from each evidence type, then caps the total sample.
+        """
+        with psycopg.connect(self.database_url) as connection:
+            rows = connection.execute(
+                """
+                WITH ranked AS (
+                    SELECT title, content, source_type, event_date, metadata,
+                           1.0 AS similarity,
+                           ROW_NUMBER() OVER (
+                               PARTITION BY COALESCE(metadata->>'evidence_type', source_type)
+                               ORDER BY event_date DESC NULLS LAST, id DESC
+                           ) AS type_rank
+                    FROM case_documents
+                    WHERE case_id = %s
+                      AND source_type = 'evidence'
+                )
+                SELECT title, content, source_type, event_date, metadata, similarity
+                FROM ranked
+                WHERE type_rank <= 3
+                ORDER BY event_date DESC NULLS LAST
+                LIMIT %s
+                """,
+                (case_id, limit),
+            ).fetchall()
+
+            if not rows:
+                # Newly-created/manual cases may not have evidence-type metadata.
+                rows = connection.execute(
+                    """
+                    SELECT title, content, source_type, event_date, metadata,
+                           1.0 AS similarity
+                    FROM case_documents
+                    WHERE case_id = %s
+                    ORDER BY event_date DESC NULLS LAST, id DESC
+                    LIMIT %s
+                    """,
+                    (case_id, limit),
+                ).fetchall()
+
+        return [self._row_to_document(row) for row in rows]
