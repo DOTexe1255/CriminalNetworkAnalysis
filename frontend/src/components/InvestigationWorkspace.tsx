@@ -10,8 +10,6 @@ import MapView from "./MapView";
 import PersonDossier from "./PersonDossier";
 import "./InvestigationWorkspace.css";
 import { API_BASE_URL } from "../config";
-import ReactMarkdown from "react-markdown";
-import RagAttribution, { type RagAnalyticalContext, type RagSource } from "./RagAttribution";
 
 const API = API_BASE_URL;
 
@@ -33,16 +31,13 @@ export default function InvestigationWorkspace({ initialCaseId = "case_00000", o
   const [hopDistance, setHopDistance] = useState<0 | 1 | 2>(0);
   const [edge, setEdge] = useState<EdgeDetails | null>(null);
   const [ragAnswer, setRagAnswer] = useState("");
-  const [ragSources, setRagSources] = useState<RagSource[]>([]);
-  const [ragAnalyticalContext, setRagAnalyticalContext] = useState<RagAnalyticalContext[]>([]);
+  const [ragSources, setRagSources] = useState<Array<{ title: string; event_date?: string | null }>>([]);
   const [ragLoading, setRagLoading] = useState(false);
-  const [showRagResult, setShowRagResult] = useState(false);
 
   async function askCase() {
     if (!query.trim()) return;
     setRagLoading(true);
     setRagAnswer("");
-    setShowRagResult(true);
     try {
       const response = await fetch(`${API}/api/rag/query`, {
         method: "POST",
@@ -52,11 +47,9 @@ export default function InvestigationWorkspace({ initialCaseId = "case_00000", o
       const data = await response.json();
       setRagAnswer(response.ok ? data.answer : data.detail || "Case query is unavailable.");
       setRagSources(response.ok ? data.sources || [] : []);
-      setRagAnalyticalContext(response.ok ? data.analytical_context || [] : []);
     } catch {
       setRagAnswer("Case query is unavailable. Check that the API and Hugging Face token are configured.");
       setRagSources([]);
-      setRagAnalyticalContext([]);
     } finally {
       setRagLoading(false);
     }
@@ -65,18 +58,15 @@ export default function InvestigationWorkspace({ initialCaseId = "case_00000", o
   async function summarizeCase() {
     setRagLoading(true);
     setRagAnswer("");
-    setShowRagResult(true);
     setQuery("Case summary");
     try {
       const response = await fetch(`${API}/api/case/${encodeURIComponent(caseId)}/summary`);
       const data = await response.json();
       setRagAnswer(response.ok ? data.answer : data.detail || "Case summary is unavailable.");
       setRagSources(response.ok ? data.sources || [] : []);
-      setRagAnalyticalContext(response.ok ? data.analytical_context || [] : []);
     } catch {
       setRagAnswer("Case summary is unavailable. Check the API and Hugging Face token.");
       setRagSources([]);
-      setRagAnalyticalContext([]);
     } finally {
       setRagLoading(false);
     }
@@ -126,10 +116,10 @@ export default function InvestigationWorkspace({ initialCaseId = "case_00000", o
     setPerson(null);
     setEvidence([]);
     setEdge(null);
+    setGraphFocusId(undefined);
+    setHopDistance(0);
     setRagAnswer("");
     setRagSources([]);
-    setRagAnalyticalContext([]);
-    setShowRagResult(false);
   }, [caseId]);
 
   const handlePersonSelect = useCallback((nextPerson: PersonDetails) => {
@@ -158,6 +148,26 @@ export default function InvestigationWorkspace({ initialCaseId = "case_00000", o
       setView("timeline");
     }
   }, []);
+
+  const handleHopChange = useCallback((hop: 0 | 1 | 2) => {
+    if (hop === 0) {
+      // Reset is a complete graph reset: clear both the hop mode and the
+      // selected graph person so GraphView can remove every focus class.
+      setHopDistance(0);
+      setGraphFocusId(undefined);
+      setEdge(null);
+      return;
+    }
+
+    // graphFocusId is the authoritative selection because it is populated
+    // immediately when a graph node is clicked. The profile/person state can
+    // still be null for a moment while its API request is loading.
+    const targetId = graphFocusId || person?.id || finding?.person_id;
+    if (!targetId) return;
+
+    setGraphFocusId(targetId);
+    setHopDistance(hop);
+  }, [graphFocusId, person?.id, finding?.person_id]);
 
   const quickLeads = useMemo(() => (finding ? [finding] : []), [finding]);
 
@@ -251,39 +261,12 @@ export default function InvestigationWorkspace({ initialCaseId = "case_00000", o
             </div>
           </section>
 
-          {showRagResult && (ragLoading || ragAnswer) && (
+          {(ragLoading || ragAnswer) && (
             <section className="case-query-result">
-              <div className="case-query-result-header">
-                <div>
-                  <div className="eyebrow">CASE QUESTION / {caseId}</div>
-                  <h2>{ragLoading ? "Searching indexed case material..." : "Evidence-grounded answer"}</h2>
-                </div>
-
-                {!ragLoading && (
-                  <button
-                    type="button"
-                    className="case-query-close"
-                    aria-label="Close case summary"
-                    title="Close summary"
-                    onClick={() => setShowRagResult(false)}
-                  >
-                    ×
-                  </button>
-                )}
-              </div>
-
-              {!ragLoading && (
-                <div className="rag-answer">
-                  <ReactMarkdown>{ragAnswer}</ReactMarkdown>
-                </div>
-              )}
-
-              {!ragLoading && (
-                <RagAttribution
-                  sources={ragSources}
-                  analyticalContext={ragAnalyticalContext}
-                />
-              )}
+              <div className="eyebrow">CASE QUESTION / {caseId}</div>
+              <h2>{ragLoading ? "Searching indexed case material..." : "Evidence-grounded answer"}</h2>
+              {!ragLoading && <p>{ragAnswer}</p>}
+              {ragSources.length > 0 && <small>Sources: {ragSources.map((source) => `${source.title}${source.event_date ? ` (${source.event_date})` : ""}`).join(" · ")}</small>}
             </section>
           )}
 
@@ -330,16 +313,7 @@ export default function InvestigationWorkspace({ initialCaseId = "case_00000", o
               view={view}
               onViewChange={setView}
               hopDistance={hopDistance}
-              onHopChange={(hop) => {
-                setHopDistance(hop);
-                if (hop === 0) {
-                  setGraphFocusId(undefined);
-                } else if (person?.id) {
-                  setGraphFocusId(person.id);
-                } else if (finding?.person_id) {
-                  setGraphFocusId(finding.person_id);
-                }
-              }}
+              onHopChange={handleHopChange}
             />
           </div>
         </main>

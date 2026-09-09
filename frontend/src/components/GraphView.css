@@ -1,170 +1,96 @@
-.trace-graph-wrap{
-  position:relative;
-  width:100%;
-  height:100%;
-  min-height:0;
-  background:#10151C;
+@import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Sans:wght@400;500;600;700&family=IBM+Plex+Mono:wght@400;500&display=swap');
+
+.trace-graph-wrap {
+  position: relative;
+  width: 100%;
+  height: 100%;
+  min-height: 0;
+  overflow: hidden;
+  background:
+    radial-gradient(circle at 50% 46%, rgba(30, 43, 58, 0.22), transparent 55%),
+    #0B1118;
+  font-family: "IBM Plex Sans", sans-serif;
 }
 
-.graph-canvas{
-  width:100%;
-  height:100%;
+.graph-canvas {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  cursor: grab;
+  z-index: 1;
 }
 
-.graph-status{
-  position:absolute;
-  top:16px;
-  left:16px;
-  z-index:10;
-  padding:8px 12px;
-  background:#161C24;
-  border:1px solid #28313B;
-  color:#C7CDD6;
-  font-size:11px;
+.graph-canvas:active {
+  cursor: grabbing;
 }
 
-.graph-error{
-  color:#E0A15C;
+.graph-cluster-overlay {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  z-index: 2;
+  pointer-events: none;
+  overflow: visible;
 }
 
-.graph-context{
-  position:absolute;
-  top:18px;
-  right:18px;
-  z-index:5;
-  width:235px;
-  padding:12px 14px;
-  background:rgba(22,28,36,.94);
-  border:1px solid #28313B;
-  pointer-events:none;
+.graph-status {
+  position: absolute;
+  top: 58px;
+  left: 18px;
+  z-index: 50;
+  padding: 7px 10px;
+  color: #aeb8c4;
+  background: rgba(10, 16, 23, 0.94);
+  border: 1px solid #2c3743;
+  font: 8px "IBM Plex Mono", monospace;
+  letter-spacing: 0.05em;
+  pointer-events: none;
 }
 
-.context-kicker{
-  display:block;
-  font:500 9px 'IBM Plex Mono',monospace;
-  letter-spacing:.12em;
-  color:#D9A441;
-  margin-bottom:5px;
+.graph-error {
+  color: #e1b879;
+  border-color: #70582e;
 }
-
-.graph-context strong{
-  display:block;
-  color:#DDE2E7;
-  font-size:12px;
-  font-weight:500;
-}
-
-.graph-context small{
-  display:block;
-  color:#68737F;
-  font-size:10px;
-  line-height:1.45;
-  margin-top:5px;
-}
-
-.graph-legend{
-  position:absolute;
-  left:16px;
-  bottom:70px;
-  z-index:5;
-  display:flex;
-  flex-direction:column;
-  gap:7px;
-  padding:12px 14px;
-  background:rgba(22,28,36,.96);
-  border:1px solid #28313B;
-  color:#89939F;
-  font-size:10px;
-  pointer-events:none;
-}
-
-.graph-legend b{
-  color:#C7CDD6;
-  font:500 10px 'IBM Plex Mono',monospace;
-  margin-bottom:2px;
-}
-
-.graph-legend span{
-  display:flex;
-  align-items:center;
-  gap:7px;
-}
-
-.legend-dot{
-  width:9px;
-  height:9px;
-  border-radius:50%;
-  display:inline-block;
-  flex-shrink:0;
-}
-
-.legend-dot.ordinary{background:#5B7A9D}
-.legend-dot.notable{background:#8A8F98}
-.legend-dot.key{background:#D9A441}
-
-.graph-legend small{
-  color:#59636F;
-  margin-top:4px;
-}
-
-@media(max-width:700px){
-  .graph-context{display:none}
-  .graph-legend{left:10px;bottom:62px}
-}
-
-.graph-status{
-  display:flex;
-  align-items:center;
-  gap:8px;
-}
-
-.graph-status::before{
-  content:"";
-  width:10px;
-  height:10px;
-  border:1px solid #56616d;
-  border-top-color:#d9a441;
-  border-radius:50%;
-  animation:trace-spin .7s linear infinite;
-  flex-shrink:0;
-}
-
-@keyframes trace-spin{to{transform:rotate(360deg)}}
-
-/* Add these rules to your existing GraphView.css */
 
 .graph-mode-toggle {
   position: absolute;
-  left: 16px;
-  top: 16px;
-  z-index: 12;
+  top: 18px;
+  left: 18px;
+  z-index: 40;
   display: flex;
-  gap: 2px;
-  padding: 3px;
-  border: 1px solid #29323c;
-  background: rgba(15, 20, 26, 0.94);
+  border: 1px solid #283442;
+  background: rgba(11, 17, 24, 0.94);
 }
 
 .graph-mode-toggle button {
-  border: 1px solid transparent;
+  min-width: 106px;
+  height: 38px;
+  padding: 0 14px;
+  border: 0;
+  border-right: 1px solid #283442;
   background: transparent;
-  color: #6f7b87;
-  padding: 6px 9px;
-  font-family: "IBM Plex Mono", monospace;
-  font-size: 7px;
-  letter-spacing: 0.05em;
+  color: #7E8C9D;
+  font: 500 11px "IBM Plex Mono", monospace;
+  letter-spacing: 0.04em;
   cursor: pointer;
+  transition: all 0.15s ease;
 }
 
-.graph-mode-toggle button:hover:not(:disabled) {
-  color: #c7cdd6;
-  border-color: #39434e;
+.graph-mode-toggle button:last-child {
+  border-right: 0;
 }
 
 .graph-mode-toggle button.active {
-  border-color: #80652f;
-  color: #d9a441;
-  background: #1a1c1e;
+  color: #F0BD55;
+  background: #111922;
+  box-shadow: inset 0 -2px 0 #C7953D;
+}
+
+.graph-mode-toggle button:hover:not(:disabled) {
+  color: #D9E0E7;
+  background: #121A23;
 }
 
 .graph-mode-toggle button:disabled {
@@ -172,112 +98,292 @@
   cursor: default;
 }
 
-.entity-legend {
-  max-width: 180px;
-}
-
-.entity-legend span {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-}
-
-.entity-legend .legend-dot {
-  width: 7px;
-  height: 7px;
-  display: inline-block;
-  border-radius: 50%;
-  flex: 0 0 auto;
-}
-
-.entity-legend .legend-dot.phone { background: #6689a9; }
-.entity-legend .legend-dot.account { background: #7f8791; }
-.entity-legend .legend-dot.vehicle { background: #9a8060; }
-.entity-legend .legend-dot.location { background: #718e78; }
-.entity-legend .legend-dot.event { background: #8a8f98; }
-.entity-legend .legend-dot.org { background: #8c7a9b; }
-.entity-legend .legend-dot.person { background: #d9a441; }
-
-/* Relationship labels are intentionally quiet until an edge is selected. */
-.trace-graph-wrap .graph-canvas {
-  cursor: default;
-}
-/* Add these rules to your existing GraphView.css */
-
-.graph-mode-toggle {
+.graph-context {
   position: absolute;
-  left: 16px;
-  top: 16px;
-  z-index: 12;
+  top: 18px;
+  right: 18px;
+  z-index: 35;
+  width: 275px;
+  padding: 15px 16px 16px;
+  background: rgba(14, 21, 29, 0.94);
+  border: 1px solid #283442;
+  border-left: 2px solid #D9A441;
+  box-shadow: 0 12px 30px rgba(0, 0, 0, 0.35);
+  pointer-events: none;
+}
+
+.context-kicker {
+  display: block;
+  margin-bottom: 5px;
+  color: #E0AD4E;
+  font: 600 9px "IBM Plex Mono", monospace;
+  letter-spacing: 0.1em;
+}
+
+.graph-context strong {
+  display: block;
+  color: #E5EAF0;
+  font-size: 16px;
+  font-weight: 600;
+}
+
+.graph-context small {
+  display: block;
+  color: #84909D;
+  font-size: 11px;
+  line-height: 1.5;
+  margin-top: 10px;
+}
+
+.network-stat-grid {
+  display: grid;
+  grid-template-columns: repeat(3, 1fr);
+  gap: 0;
+  margin-top: 14px;
+  padding: 12px 0;
+  border-top: 1px solid #25303D;
+  border-bottom: 1px solid #25303D;
+}
+
+.network-stat-grid div {
   display: flex;
-  gap: 2px;
-  padding: 3px;
-  border: 1px solid #29323c;
-  background: rgba(15, 20, 26, 0.94);
+  flex-direction: column;
+  gap: 3px;
 }
 
-.graph-mode-toggle button {
-  border: 1px solid transparent;
-  background: transparent;
-  color: #6f7b87;
-  padding: 6px 9px;
-  font-family: "IBM Plex Mono", monospace;
-  font-size: 7px;
+.network-stat-grid b {
+  color: #E7EBEF;
+  font: 600 17px "IBM Plex Mono", monospace;
+}
+
+.network-stat-grid span {
+  color: #6D7986;
+  font: 8px "IBM Plex Mono", monospace;
   letter-spacing: 0.05em;
-  cursor: pointer;
 }
 
-.graph-mode-toggle button:hover:not(:disabled) {
-  color: #c7cdd6;
-  border-color: #39434e;
+.network-key-people {
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  padding-top: 11px;
 }
 
-.graph-mode-toggle button.active {
-  border-color: #80652f;
-  color: #d9a441;
-  background: #1a1c1e;
+.network-key-people > span {
+  color: #687482;
+  font: 8px "IBM Plex Mono", monospace;
+  letter-spacing: 0.08em;
+  margin-bottom: 2px;
 }
 
-.graph-mode-toggle button:disabled {
-  opacity: 0.35;
-  cursor: default;
+.network-key-people b {
+  color: #C5CED8;
+  font-size: 10px;
+  font-weight: 500;
 }
 
-.entity-legend {
-  max-width: 180px;
+.graph-legend {
+  position: absolute;
+  left: 18px;
+  bottom: 18px;
+  z-index: 35;
+  width: 220px;
+  display: flex;
+  flex-direction: column;
+  gap: 7px;
+  padding: 12px 14px;
+  background: rgba(13, 20, 28, 0.94);
+  border: 1px solid #283442;
+  color: #A3ADB8;
+  font-size: 11px;
+  pointer-events: none;
 }
 
-.entity-legend span {
+.graph-legend b {
+  color: #8C99A8;
+  font: 600 9px "IBM Plex Mono", monospace;
+  letter-spacing: 0.08em;
+  margin-bottom: 2px;
+  text-transform: uppercase;
+}
+
+.graph-legend span {
   display: flex;
   align-items: center;
-  gap: 6px;
+  gap: 9px;
+  color: #CBD5E1;
+  font-size: 11px;
 }
 
-.entity-legend .legend-dot {
-  width: 7px;
-  height: 7px;
-  display: inline-block;
+.legend-dot {
+  width: 12px;
+  height: 12px;
   border-radius: 50%;
+  display: inline-block;
+  flex-shrink: 0;
+  border: 1px solid rgba(255, 255, 255, 0.2);
+}
+
+.legend-dot.person-blue { background: #2563EB; }
+.legend-dot.key-gold { background: #D9A441; border: 1.5px solid #F4CB72; }
+.legend-dot.cross-purple { background: #8D5BE8; }
+.legend-dot.centrality-pink { background: #DC2626; border: 1.5px solid #F472B6; }
+.legend-dot.lead-ring { background: #D9A441; border: 2px solid #FFE09A; }
+
+.legend-dot.ordinary { background: #2563EB; }
+.legend-dot.notable { background: #EF4444; }
+.legend-dot.key { background: #D9A441; }
+
+.legend-dot.person { background: #D9A441; }
+.legend-dot.phone { background: #6689A9; }
+.legend-dot.account { background: #7F8791; }
+.legend-dot.vehicle { background: #9A8060; }
+.legend-dot.device { background: #657A78; }
+.legend-dot.location { background: #718E78; }
+.legend-dot.event { background: #8A8F98; }
+.legend-dot.org { background: #8C7A9B; }
+.legend-dot.case { background: #A37B56; }
+
+.legend-edge-title {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px solid #25303D;
+  color: #8C99A8;
+  font: 600 9px "IBM Plex Mono", monospace;
+  letter-spacing: 0.08em;
+}
+
+.legend-line {
+  width: 20px;
+  height: 0;
+  display: inline-block;
+  flex-shrink: 0;
+}
+
+.legend-line.direct {
+  border-top: 1.5px solid #64748B;
+}
+
+.legend-line.cross-dashed,
+.legend-line.cross {
+  border-top: 1.5px dashed #9E855A;
+}
+
+.graph-legend small {
+  color: #64707C;
+  margin-top: 4px;
+  line-height: 1.4;
+  font-size: 9.5px;
+}
+
+.graph-minimap {
+  position: absolute;
+  left: 18px;
+  bottom: 275px;
+  z-index: 35;
+  width: 220px;
+  padding: 8px 10px 10px;
+  background: rgba(12, 19, 27, 0.92);
+  border: 1px solid #283442;
+  pointer-events: none;
+}
+
+.graph-minimap-title {
+  margin-bottom: 5px;
+  color: #6D7986;
+  font: 8px "IBM Plex Mono", monospace;
+  letter-spacing: 0.08em;
+}
+
+.graph-minimap svg {
+  display: block;
+  width: 100%;
+  height: 90px;
+}
+
+@media (max-width: 950px) {
+  .graph-context { width: 235px; }
+  .graph-minimap { display: none; }
+}
+
+@media (max-width: 700px) {
+  .graph-context { display: none; }
+  .graph-legend { left: 10px; bottom: 10px; }
+  .graph-mode-toggle { left: 10px; top: 10px; }
+}
+
+.graph-cluster-overlay path {
+  stroke-linecap: round;
+  stroke-linejoin: round;
+  vector-effect: non-scaling-stroke;
+}
+
+.graph-cluster-overlay text {
+  paint-order: stroke;
+  stroke: rgba(11, 17, 24, 0.92);
+  stroke-width: 4px;
+  stroke-linejoin: round;
+}
+
+
+/* Collapsible graph panels */
+.graph-panel-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 10px;
+}
+
+.graph-panel-toggle {
   flex: 0 0 auto;
+  width: 20px;
+  height: 20px;
+  display: grid;
+  place-items: center;
+  padding: 0;
+  border: 1px solid #303b47;
+  background: #111820;
+  color: #8793a0;
+  font: 14px/1 'IBM Plex Mono', monospace;
+  cursor: pointer;
+  pointer-events: auto;
 }
 
-.entity-legend .legend-dot.phone { background: #6689a9; }
-.entity-legend .legend-dot.account { background: #7f8791; }
-.entity-legend .legend-dot.vehicle { background: #9a8060; }
-.entity-legend .legend-dot.location { background: #718e78; }
-.entity-legend .legend-dot.event { background: #8a8f98; }
-.entity-legend .legend-dot.org { background: #8c7a9b; }
-.entity-legend .legend-dot.person { background: #d9a441; }
-
-/* Relationship labels are intentionally quiet until an edge is selected. */
-.trace-graph-wrap .graph-canvas {
-  cursor: default;
+.graph-panel-toggle:hover {
+  color: #F0BD55;
+  border-color: #8d6d32;
+  background: #171f28;
 }
-/* Append to existing GraphView.css */
-.graph-mode-toggle{position:absolute;left:16px;top:16px;z-index:30;display:flex;gap:2px;padding:3px;border:1px solid #29323c;background:rgba(15,20,26,.96);box-shadow:0 8px 22px rgba(0,0,0,.22)}
-.graph-mode-toggle button{border:1px solid transparent;background:transparent;color:#6f7b87;padding:6px 9px;font-family:"IBM Plex Mono",monospace;font-size:7px;letter-spacing:.05em;cursor:pointer}
-.graph-mode-toggle button:hover:not(:disabled){color:#c7cdd6;border-color:#39434e}.graph-mode-toggle button.active{border-color:#80652f;color:#d9a441;background:#1a1c1e}.graph-mode-toggle button:disabled{opacity:.35;cursor:default}
-.graph-status{position:absolute;left:16px;top:56px;z-index:29;max-width:360px;padding:7px 10px;border:1px solid #303a45;background:rgba(12,17,23,.94);color:#aeb7c2;font:7px "IBM Plex Mono",monospace;letter-spacing:.04em;pointer-events:none;box-shadow:0 8px 22px rgba(0,0,0,.18)}
-.graph-status.graph-error{color:#d7b37b;border-color:#6b5630;pointer-events:auto}
-.graph-context{z-index:20!important;pointer-events:none}
-.graph-legend{z-index:20!important}.entity-legend{max-width:180px}.entity-legend span{display:flex;align-items:center;gap:6px}.entity-legend .legend-dot{width:7px;height:7px;display:inline-block;border-radius:50%;flex:0 0 auto}.entity-legend .legend-dot.person{background:#d9a441}.entity-legend .legend-dot.phone{background:#6689a9}.entity-legend .legend-dot.account{background:#7f8791}.entity-legend .legend-dot.vehicle{background:#9a8060}.entity-legend .legend-dot.device{background:#657a78}.entity-legend .legend-dot.location{background:#718e78}.entity-legend .legend-dot.event{background:#8a8f98}.entity-legend .legend-dot.org{background:#8c7a9b}.entity-legend .legend-dot.case{background:#a37b56}
+
+.graph-context.is-collapsed {
+  width: auto;
+  min-width: 190px;
+  padding: 9px 10px;
+}
+
+.graph-context.is-collapsed .graph-panel-header {
+  align-items: center;
+}
+
+.graph-minimap.is-collapsed {
+  width: auto;
+  padding: 7px 9px;
+}
+
+.graph-minimap.is-collapsed .graph-panel-header {
+  align-items: center;
+}
+
+.graph-legend.is-collapsed {
+  width: auto;
+  min-width: 130px;
+  padding: 8px 10px;
+}
+
+.graph-legend.is-collapsed .graph-panel-header {
+  align-items: center;
+}
+
+.graph-legend.is-collapsed .graph-panel-header b {
+  margin-bottom: 0;
+}

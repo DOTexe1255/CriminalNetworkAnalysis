@@ -1,1 +1,49 @@
-.graph-controls{position:absolute;left:16px;right:16px;bottom:16px;display:flex;justify-content:space-between;align-items:flex-end;pointer-events:none}.graph-controls button{pointer-events:auto;background:#161c24;border:1px solid #2a333e;color:#89939f;font:9px 'IBM Plex Mono';padding:7px 10px;cursor:pointer;transition:.15s ease}.graph-controls button.active,.graph-controls button:hover{color:#e4e7eb;border-color:#d9a441;background:#1d252e}.view-tabs,.graph-actions{display:flex;gap:4px}.view-tabs{padding:3px;background:#161c24;border:1px solid #2a333e}.view-tabs button{border:0}.graph-actions{margin-left:auto}
+.graph-controls{
+  z-index:60;
+  position:absolute;
+  left:16px;
+  right:16px;
+  bottom:16px;
+  display:flex;
+  justify-content:space-between;
+  align-items:flex-end;
+  pointer-events:none;
+}
+
+.graph-controls button{
+  pointer-events:auto;
+  background:#161c24;
+  border:1px solid #2a333e;
+  color:#89939f;
+  font:9px 'IBM Plex Mono';
+  padding:7px 10px;
+  cursor:pointer;
+  transition:.15s ease;
+}
+
+.graph-controls button.active,
+.graph-controls button:hover{
+  color:#e4e7eb;
+  border-color:#d9a441;
+  background:#1d252e;
+}
+
+.view-tabs,
+.graph-actions{
+  display:flex;
+  gap:4px;
+}
+
+.view-tabs{
+  padding:3px;
+  background:#161c24;
+  border:1px solid #2a333e;
+}
+
+.view-tabs button{
+  border:0;
+}
+
+.graph-actions{
+  margin-left:auto;
+}
