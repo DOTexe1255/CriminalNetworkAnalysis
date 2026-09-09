@@ -1,8 +1,16 @@
 .case-query-result {
-	margin: 0 0 16px;
-	padding: 18px 20px;
-	border: 1px solid rgba(217, 164, 65, 0.35);
-	background: rgba(217, 164, 65, 0.06);
+  position: relative;
+  flex: 0 1 auto;
+  min-height: 0;
+  max-height: 46%;
+  margin: 0 0 12px;
+  padding: 16px 18px 14px;
+  border: 1px solid rgba(217, 164, 65, 0.35);
+  background: rgba(217, 164, 65, 0.06);
+  overflow-y: auto;
+  overflow-x: hidden;
+  scrollbar-width: thin;
+  scrollbar-color: #46515d transparent;
 }
 
 .case-query-result h2 { margin: 6px 0 8px; }
@@ -63,4 +71,129 @@
   padding-left: 12px;
   border-left: 2px solid #c9952e;
   color: #aeb8c7;
+}
+.rag-attribution {
+  margin-top: 18px;
+  padding-top: 14px;
+  border-top: 1px solid #28313b;
+  display: grid;
+  gap: 14px;
+}
+
+.rag-attribution-group {
+  display: grid;
+  gap: 7px;
+}
+
+.rag-attribution-label {
+  color: #687481;
+  font: 8px "IBM Plex Mono", monospace;
+  letter-spacing: 0.1em;
+}
+
+.rag-source-list,
+.rag-analysis-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.rag-source-chip,
+.rag-analysis-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  padding: 6px 8px;
+  border: 1px solid #303a45;
+  background: #11171e;
+  color: #aeb7c1;
+  font: 9px "IBM Plex Mono", monospace;
+}
+
+.rag-source-chip b,
+.rag-analysis-chip b {
+  color: #dfe3e7;
+  font-weight: 500;
+}
+
+.rag-source-chip small,
+.rag-analysis-chip small {
+  color: #687481;
+  font: inherit;
+}
+
+.rag-analysis-chip {
+  border-color: rgba(217, 164, 65, 0.3);
+}
+
+.rag-analysis-chip b {
+  color: #d9a441;
+}
+
+/* Case summary header + close control */
+.case-query-result-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.case-query-close {
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  display: grid;
+  place-items: center;
+  border: 1px solid #303a45;
+  background: #11171e;
+  color: #9aa5b1;
+  font: 20px/1 Arial, sans-serif;
+  cursor: pointer;
+}
+
+.case-query-close:hover {
+  border-color: #d9a441;
+  color: #f0f2f4;
+  background: #171d24;
+}
+
+/* Markdown answer spacing */
+.rag-answer {
+  color: #d8dee9;
+  line-height: 1.65;
+  font-size: 14px;
+}
+
+.rag-answer p {
+  margin: 8px 0;
+}
+
+.rag-answer ul,
+.rag-answer ol {
+  margin: 8px 0 12px;
+  padding-left: 22px;
+}
+
+.rag-answer li {
+  margin: 5px 0;
+}
+
+.rag-answer h1,
+.rag-answer h2,
+.rag-answer h3 {
+  color: #f1f5f9;
+  margin: 18px 0 8px;
+  font-weight: 600;
+}
+
+.rag-answer strong {
+  color: #f8fafc;
+  font-weight: 600;
+}
+
+/* Attribution stays inside the scrollable summary */
+.rag-attribution {
+  margin-top: 16px;
+  padding-top: 13px;
+  border-top: 1px solid #28313b;
 }

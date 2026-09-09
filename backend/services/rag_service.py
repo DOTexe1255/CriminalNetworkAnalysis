@@ -29,7 +29,7 @@ class RagService:
                 repo_id=self.model_id,
                 huggingfacehub_api_token=token,
                 task="conversational",
-                max_new_tokens=900,
+                max_new_tokens=1400,
                 temperature=0.05,
             )
             self._llm = ChatHuggingFace(llm=endpoint)
@@ -95,6 +95,37 @@ class RagService:
             enriched.append(copy)
 
         return enriched
+
+    def _case_analytical_context(self, case_id: str) -> list[dict[str, Any]]:
+        """Return stored graph findings separately from evidence sources.
+
+        These are analytical outputs produced by Trace's graph pipeline, not
+        primary evidence records. Keeping them separate lets the UI make that
+        distinction explicit to investigators.
+        """
+        driver = self._get_neo4j()
+        if not driver:
+            return []
+
+        query = """
+        MATCH (c:Case {id: $case_id})-[:HAS_FINDING]->(f:Finding)
+        RETURN
+            f.id AS id,
+            f.finding_type AS finding_type,
+            f.title AS title,
+            f.importance AS importance,
+            f.description AS description
+        ORDER BY
+            CASE coalesce(f.importance, '')
+                WHEN 'High' THEN 1
+                WHEN 'Medium' THEN 2
+                ELSE 3
+            END,
+            f.title
+        LIMIT 8
+        """
+        with driver.session() as session:
+            return [dict(record) for record in session.run(query, case_id=case_id)]
 
     def _case_graph_context(self, case_id: str) -> str:
         """Fetch small, factual graph context so the model can explain relationships."""
@@ -197,6 +228,7 @@ class RagService:
         sources = self.vector_store.case_summary_search(case_id, limit=12)
         sources = self._enrich_sources(sources)
         graph_context = self._case_graph_context(case_id)
+        analytical_context = self._case_analytical_context(case_id)
 
         if not sources and not graph_context:
             return {
@@ -218,7 +250,13 @@ STRICT RULES:
 - If the graph contains an analytical finding, describe it as an analytical observation, not as proof.
 - Distinguish what is recorded from what remains unknown.
 - Do not expose internal person IDs when a person's name is supplied.
-- Keep the answer concise and investigator-friendly.
+- Keep the entire response under 350 words.
+- Use short bullet points.
+- Maximum 3 bullets per section.
+- Do not repeat information across sections.
+- Do not list every person or every finding; prioritize the most relevant facts and strongest analytical observations.
+- Finish all sections before adding any extra detail.
+- Never leave a sentence or bullet unfinished.
 
 Use exactly these sections:
 ## Recorded facts
@@ -238,7 +276,7 @@ CASE GRAPH CONTEXT:
 NUMBERED EVIDENCE RECORDS:
 {context}
 
-Prepare the case summary now. Cite the numbered records inline, for example [1] or [3][7].
+Prepare the case summary now. Keep it concise (under 350 words), with no more than 3 bullets per section. Cite the numbered records inline, for example [1] or [3][7]. Complete all five sections before adding detail.
 """
         answer = self._invoke(system, human, {
             "case_id": case_id,
@@ -251,6 +289,7 @@ Prepare the case summary now. Cite the numbered records inline, for example [1] 
         return {
             "answer": answer,
             "sources": sources,
+            "analytical_context": analytical_context,
             "case_id": case_id,
             "model": self.model_id,
         }
@@ -259,6 +298,7 @@ Prepare the case summary now. Cite the numbered records inline, for example [1] 
         sources = self.vector_store.similarity_search(case_id, question, limit=8)
         sources = self._enrich_sources(sources)
         graph_context = self._case_graph_context(case_id)
+        analytical_context = self._case_analytical_context(case_id)
 
         if not sources and not graph_context:
             return {

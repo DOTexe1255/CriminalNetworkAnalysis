@@ -1,5 +1,4 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
-import ReactMarkdown from "react-markdown";
 import GraphView, { type EdgeDetails } from "./GraphView";
 import FindingsPanel, { humanType, type Finding } from "./FindingsPanel";
 import EntityProfile, { type PersonDetails } from "./EntityProfile";
@@ -11,6 +10,8 @@ import MapView from "./MapView";
 import PersonDossier from "./PersonDossier";
 import "./InvestigationWorkspace.css";
 import { API_BASE_URL } from "../config";
+import ReactMarkdown from "react-markdown";
+import RagAttribution, { type RagAnalyticalContext, type RagSource } from "./RagAttribution";
 
 const API = API_BASE_URL;
 
@@ -32,13 +33,16 @@ export default function InvestigationWorkspace({ initialCaseId = "case_00000", o
   const [hopDistance, setHopDistance] = useState<0 | 1 | 2>(0);
   const [edge, setEdge] = useState<EdgeDetails | null>(null);
   const [ragAnswer, setRagAnswer] = useState("");
-  const [ragSources, setRagSources] = useState<Array<{ title: string; event_date?: string | null }>>([]);
+  const [ragSources, setRagSources] = useState<RagSource[]>([]);
+  const [ragAnalyticalContext, setRagAnalyticalContext] = useState<RagAnalyticalContext[]>([]);
   const [ragLoading, setRagLoading] = useState(false);
+  const [showRagResult, setShowRagResult] = useState(false);
 
   async function askCase() {
     if (!query.trim()) return;
     setRagLoading(true);
     setRagAnswer("");
+    setShowRagResult(true);
     try {
       const response = await fetch(`${API}/api/rag/query`, {
         method: "POST",
@@ -48,9 +52,11 @@ export default function InvestigationWorkspace({ initialCaseId = "case_00000", o
       const data = await response.json();
       setRagAnswer(response.ok ? data.answer : data.detail || "Case query is unavailable.");
       setRagSources(response.ok ? data.sources || [] : []);
+      setRagAnalyticalContext(response.ok ? data.analytical_context || [] : []);
     } catch {
       setRagAnswer("Case query is unavailable. Check that the API and Hugging Face token are configured.");
       setRagSources([]);
+      setRagAnalyticalContext([]);
     } finally {
       setRagLoading(false);
     }
@@ -59,15 +65,18 @@ export default function InvestigationWorkspace({ initialCaseId = "case_00000", o
   async function summarizeCase() {
     setRagLoading(true);
     setRagAnswer("");
+    setShowRagResult(true);
     setQuery("Case summary");
     try {
       const response = await fetch(`${API}/api/case/${encodeURIComponent(caseId)}/summary`);
       const data = await response.json();
       setRagAnswer(response.ok ? data.answer : data.detail || "Case summary is unavailable.");
       setRagSources(response.ok ? data.sources || [] : []);
+      setRagAnalyticalContext(response.ok ? data.analytical_context || [] : []);
     } catch {
       setRagAnswer("Case summary is unavailable. Check the API and Hugging Face token.");
       setRagSources([]);
+      setRagAnalyticalContext([]);
     } finally {
       setRagLoading(false);
     }
@@ -119,6 +128,8 @@ export default function InvestigationWorkspace({ initialCaseId = "case_00000", o
     setEdge(null);
     setRagAnswer("");
     setRagSources([]);
+    setRagAnalyticalContext([]);
+    setShowRagResult(false);
   }, [caseId]);
 
   const handlePersonSelect = useCallback((nextPerson: PersonDetails) => {
@@ -240,16 +251,39 @@ export default function InvestigationWorkspace({ initialCaseId = "case_00000", o
             </div>
           </section>
 
-          {(ragLoading || ragAnswer) && (
+          {showRagResult && (ragLoading || ragAnswer) && (
             <section className="case-query-result">
-              <div className="eyebrow">CASE QUESTION / {caseId}</div>
-              <h2>{ragLoading ? "Searching indexed case material..." : "Evidence-grounded answer"}</h2>
+              <div className="case-query-result-header">
+                <div>
+                  <div className="eyebrow">CASE QUESTION / {caseId}</div>
+                  <h2>{ragLoading ? "Searching indexed case material..." : "Evidence-grounded answer"}</h2>
+                </div>
+
+                {!ragLoading && (
+                  <button
+                    type="button"
+                    className="case-query-close"
+                    aria-label="Close case summary"
+                    title="Close summary"
+                    onClick={() => setShowRagResult(false)}
+                  >
+                    ×
+                  </button>
+                )}
+              </div>
+
               {!ragLoading && (
                 <div className="rag-answer">
                   <ReactMarkdown>{ragAnswer}</ReactMarkdown>
                 </div>
               )}
-              {ragSources.length > 0 && <small>Sources: {ragSources.map((source) => `${source.title}${source.event_date ? ` (${source.event_date})` : ""}`).join(" · ")}</small>}
+
+              {!ragLoading && (
+                <RagAttribution
+                  sources={ragSources}
+                  analyticalContext={ragAnalyticalContext}
+                />
+              )}
             </section>
           )}
 
