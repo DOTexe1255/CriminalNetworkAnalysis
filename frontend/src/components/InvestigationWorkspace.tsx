@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import ReactMarkdown from "react-markdown";
 import GraphView, { type EdgeDetails } from "./GraphView";
 import FindingsPanel, { humanType, type Finding } from "./FindingsPanel";
 import EntityProfile, { type PersonDetails } from "./EntityProfile";
@@ -243,7 +244,11 @@ export default function InvestigationWorkspace({ initialCaseId = "case_00000", o
             <section className="case-query-result">
               <div className="eyebrow">CASE QUESTION / {caseId}</div>
               <h2>{ragLoading ? "Searching indexed case material..." : "Evidence-grounded answer"}</h2>
-              {!ragLoading && <p>{ragAnswer}</p>}
+              {!ragLoading && (
+                <div className="rag-answer">
+                  <ReactMarkdown>{ragAnswer}</ReactMarkdown>
+                </div>
+              )}
               {ragSources.length > 0 && <small>Sources: {ragSources.map((source) => `${source.title}${source.event_date ? ` (${source.event_date})` : ""}`).join(" · ")}</small>}
             </section>
           )}
