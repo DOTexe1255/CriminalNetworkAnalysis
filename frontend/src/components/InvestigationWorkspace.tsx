@@ -22,6 +22,8 @@ export default function InvestigationWorkspace({ initialCaseId = "case_00000", o
   const [evidence, setEvidence] = useState<Evidence[]>([]);
   const [activeEvidenceId, setActiveEvidenceId] = useState<string | null>(null);
   const [view, setView] = useState<AnalysisView>("graph");
+  const [briefCollapsed, setBriefCollapsed] = useState(false);
+  const [ragCollapsed, setRagCollapsed] = useState(false);
   const [query, setQuery] = useState("");
   const [caseId, setCaseId] = useState(initialCaseId);
   const [profileLoading, setProfileLoading] = useState(false);
@@ -195,78 +197,117 @@ export default function InvestigationWorkspace({ initialCaseId = "case_00000", o
         />
 
         <main className="trace-center">
-          <section className="investigation-brief">
+          <section className={`investigation-brief ${briefCollapsed ? "is-collapsed" : ""}`}>
             <div className="brief-heading">
               <div>
                 <span className="eyebrow">
                   {finding ? "INVESTIGATION CONTEXT" : "INVESTIGATION BRIEF"}
                 </span>
-                <h1>
-                  {finding
-                    ? "Trace built an investigation thread"
-                    : "What deserves attention"}
-                </h1>
-              </div>
-
-              <div className="brief-status">
-                <span className="status-dot" />
-                {finding ? "CONTEXT ACTIVE" : "LIVE ANALYSIS"}
-              </div>
-            </div>
-
-            <div className="brief-content">
-              <div className="brief-copy">
-                <span className="brief-label">
-                  {finding ? contextLabel?.toUpperCase() : "TRACE HAS PRIORITIZED"}
-                </span>
-
-                <strong>
-                  {finding
-                    ? finding.person_name || "Selected investigation lead"
-                    : "Investigation leads"}
-                </strong>
-
-                <p>
-                  {finding
-                    ? finding.description
-                    : "Select a lead on the left to focus the relevant people, relationships and evidence."}
-                </p>
-
-                {finding && (
-                  <div className="context-proof">
-                    <span><b>{evidence.length}</b> supporting records</span>
-                    <span><b>{finding.case_count ?? 0}</b> linked cases</span>
-                    <span><b>1–2</b> network hops ready</span>
-                    <span><b>{view.toUpperCase()}</b> context view</span>
-                  </div>
+                {!briefCollapsed && (
+                  <h1>
+                    {finding
+                      ? "Trace built an investigation thread"
+                      : "What deserves attention"}
+                  </h1>
                 )}
               </div>
 
-              <div className="brief-actions">
-                {quickLeads.map((lead) => (
-                  <button key={lead.id} type="button" onClick={() => setView("graph")}>
-                    <span>INVESTIGATION THREAD</span>
-                    <b>{lead.person_name || "Selected lead"}</b>
-                    <small>INSPECT NETWORK →</small>
-                  </button>
-                ))}
-
-                {!quickLeads.length && (
-                  <div className="brief-placeholder">
-                    <span>START HERE</span>
-                    <b>Choose an investigation lead</b>
-                  </div>
-                )}
+              <div className="brief-heading-actions">
+                <div className="brief-status">
+                  <span className="status-dot" />
+                  {finding ? "CONTEXT ACTIVE" : "LIVE ANALYSIS"}
+                </div>
+                <button
+                  type="button"
+                  className="brief-collapse-btn"
+                  onClick={() => setBriefCollapsed((current) => !current)}
+                  aria-label={briefCollapsed ? "Expand investigation summary" : "Minimize investigation summary"}
+                  title={briefCollapsed ? "Expand summary" : "Minimize summary"}
+                >
+                  {briefCollapsed ? "+" : "−"}
+                </button>
               </div>
             </div>
+
+            {!briefCollapsed && (
+              <div className="brief-content">
+                <div className="brief-copy">
+                  <span className="brief-label">
+                    {finding ? contextLabel?.toUpperCase() : "TRACE HAS PRIORITIZED"}
+                  </span>
+
+                  <strong>
+                    {finding
+                      ? finding.person_name || "Selected investigation lead"
+                      : "Investigation leads"}
+                  </strong>
+
+                  <p>
+                    {finding
+                      ? finding.description
+                      : "Select a lead on the left to focus the relevant people, relationships and evidence."}
+                  </p>
+
+                  {finding && (
+                    <div className="context-proof">
+                      <span><b>{evidence.length}</b> supporting records</span>
+                      <span><b>{finding.case_count ?? 0}</b> linked cases</span>
+                      <span><b>1–2</b> network hops ready</span>
+                      <span><b>{view.toUpperCase()}</b> context view</span>
+                    </div>
+                  )}
+                </div>
+
+                <div className="brief-actions">
+                  {quickLeads.map((lead) => (
+                    <button key={lead.id} type="button" onClick={() => setView("graph")}>
+                      <span>INVESTIGATION THREAD</span>
+                      <b>{lead.person_name || "Selected lead"}</b>
+                      <small>INSPECT NETWORK →</small>
+                    </button>
+                  ))}
+
+                  {!quickLeads.length && (
+                    <div className="brief-placeholder">
+                      <span>START HERE</span>
+                      <b>Choose an investigation lead</b>
+                    </div>
+                  )}
+                </div>
+              </div>
+            )}
           </section>
 
           {(ragLoading || ragAnswer) && (
-            <section className="case-query-result">
-              <div className="eyebrow">CASE QUESTION / {caseId}</div>
-              <h2>{ragLoading ? "Searching indexed case material..." : "Evidence-grounded answer"}</h2>
-              {!ragLoading && <p>{ragAnswer}</p>}
-              {ragSources.length > 0 && <small>Sources: {ragSources.map((source) => `${source.title}${source.event_date ? ` (${source.event_date})` : ""}`).join(" · ")}</small>}
+            <section className={`case-query-result ${ragCollapsed ? "is-collapsed" : ""}`}>
+              <div className="case-query-header">
+                <div>
+                  <div className="eyebrow">CASE QUESTION / {caseId}</div>
+                  {!ragCollapsed && (
+                    <h2>{ragLoading ? "Searching indexed case material..." : "Evidence-grounded answer"}</h2>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  className="case-query-collapse-btn"
+                  onClick={() => setRagCollapsed((current) => !current)}
+                  aria-label={ragCollapsed ? "Expand evidence-grounded answer" : "Minimize evidence-grounded answer"}
+                  title={ragCollapsed ? "Expand answer" : "Minimize answer"}
+                >
+                  {ragCollapsed ? "+" : "−"}
+                </button>
+              </div>
+
+              {!ragCollapsed && (
+                <>
+                  {!ragLoading && <p>{ragAnswer}</p>}
+                  {ragSources.length > 0 && (
+                    <small>
+                      Sources: {ragSources.map((source) => `${source.title}${source.event_date ? ` (${source.event_date})` : ""}`).join(" · ")}
+                    </small>
+                  )}
+                </>
+              )}
             </section>
           )}
 

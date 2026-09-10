@@ -483,6 +483,7 @@ export default function GraphView({
   onEdgeSelect,
 }: Props) {
   const containerRef = useRef<HTMLDivElement>(null);
+  const graphWrapRef = useRef<HTMLDivElement>(null);
   const cyRef = useRef<Core | null>(null);
   const clusterOverlayRef = useRef<SVGSVGElement>(null);
   const minimapRef = useRef<SVGSVGElement>(null);
@@ -500,10 +501,64 @@ export default function GraphView({
     minimap: false,
     legend: false,
   });
+  const [isFullscreen, setIsFullscreen] = useState(false);
 
   const togglePanel = (panel: "context" | "minimap" | "legend") => {
     setCollapsedPanels((current) => ({ ...current, [panel]: !current[panel] }));
   };
+
+  
+
+  const toggleFullscreen = async () => {
+    const element = graphWrapRef.current;
+    if (!element) return;
+
+    // Fullscreen the whole analysis stage so the external
+    // 1 HOP / 2 HOPS / RESET controls stay visible too.
+    const fullscreenTarget =
+      element.closest(".analysis-stage") as HTMLElement | null;
+
+    try {
+      if (document.fullscreenElement === fullscreenTarget) {
+        await document.exitFullscreen();
+      } else {
+        await (fullscreenTarget || element).requestFullscreen();
+      }
+    } catch (err) {
+      console.error("Failed to toggle graph fullscreen:", err);
+    }
+  };
+
+  useEffect(() => {
+    const handleFullscreenChange = () => {
+      const fullscreenTarget =
+        graphWrapRef.current?.closest(".analysis-stage") as HTMLElement | null;
+      const active =
+        document.fullscreenElement === fullscreenTarget ||
+        document.fullscreenElement === graphWrapRef.current;
+
+      setIsFullscreen(active);
+
+      requestAnimationFrame(() => {
+        const cy = cyRef.current;
+        if (!cy || cy.destroyed()) return;
+
+        cy.resize();
+
+        if (active) {
+          cy.fit(cy.nodes(), 70);
+        }
+
+        updateClusterOverlay(cy, clusterOverlayRef.current);
+        updateMinimap(cy, minimapRef.current);
+      });
+    };
+
+    document.addEventListener("fullscreenchange", handleFullscreenChange);
+    return () => {
+      document.removeEventListener("fullscreenchange", handleFullscreenChange);
+    };
+  }, []);
 
   useEffect(() => { onPersonSelectRef.current = onPersonSelect; }, [onPersonSelect]);
   useEffect(() => { onPersonLoadingRef.current = onPersonLoading; }, [onPersonLoading]);
@@ -926,7 +981,43 @@ export default function GraphView({
   }, [searchQuery]);
 
   return (
-    <div className="trace-graph-wrap">
+    <div
+      ref={graphWrapRef}
+      className={`trace-graph-wrap ${isFullscreen ? "is-fullscreen" : ""}`}
+      style={
+        isFullscreen
+          ? {
+              width: "100%",
+              height: "100%",
+              position: "relative",
+              background: "#10151c",
+            }
+          : undefined
+      }
+    >
+      <button
+        type="button"
+        className="graph-fullscreen-btn"
+        onClick={toggleFullscreen}
+        title={isFullscreen ? "Exit fullscreen" : "Open graph fullscreen"}
+        aria-label={isFullscreen ? "Exit graph fullscreen" : "Open graph fullscreen"}
+        style={{
+          position: "absolute",
+          bottom: 16,
+          right: 220,
+          zIndex: 80,
+          padding: "8px 11px",
+          border: "1px solid #303a45",
+          background: "#161c24",
+          color: "#9aa4af",
+          font: "10px 'IBM Plex Mono', monospace",
+          letterSpacing: ".04em",
+          cursor: "pointer",
+        }}
+      >
+        {isFullscreen ? "↙ EXIT" : "⛶ FULL SCREEN"}
+      </button>
+
       {loading && (
         <div className="graph-status">
           {entityMode ? "Building entity relationship map…" : "Building investigation network…"}

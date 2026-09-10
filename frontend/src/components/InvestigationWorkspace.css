@@ -197,3 +197,55 @@
   padding-top: 13px;
   border-top: 1px solid #28313b;
 }
+
+/* Investigation summary minimize control */
+.brief-heading-actions{display:flex;align-items:center;gap:10px}
+.brief-collapse-btn{width:26px;height:26px;display:grid;place-items:center;padding:0;border:1px solid #303a45;background:#11171e;color:#9aa4af;font:14px 'IBM Plex Mono',monospace;cursor:pointer}
+.brief-collapse-btn:hover{border-color:#d9a441;color:#e4e7eb;background:#171d24}
+.investigation-brief.is-collapsed{padding-top:9px;padding-bottom:9px}
+.investigation-brief.is-collapsed .brief-heading{margin-bottom:0}
+
+
+/* Evidence-grounded answer collapse control */
+.case-query-result {
+  position: relative;
+}
+
+.case-query-result .case-query-header {
+  display: flex;
+  align-items: flex-start;
+  justify-content: space-between;
+  gap: 16px;
+}
+
+.case-query-result .case-query-header > div:first-child {
+  min-width: 0;
+}
+
+.case-query-collapse-btn {
+  flex: 0 0 auto;
+  width: 28px;
+  height: 28px;
+  margin-top: 2px;
+  border: 1px solid #303a45;
+  background: #161c24;
+  color: #9aa4af;
+  font: 13px 'IBM Plex Mono', monospace;
+  line-height: 1;
+  cursor: pointer;
+}
+
+.case-query-collapse-btn:hover {
+  color: #e4e7eb;
+  border-color: #d9a441;
+  background: #1d252e;
+}
+
+.case-query-result.is-collapsed {
+  padding-top: 10px;
+  padding-bottom: 10px;
+}
+
+.case-query-result.is-collapsed .case-query-header {
+  align-items: center;
+}

@@ -2,3 +2,4 @@
 __pycache__/
 output_v2/
 node_modules/
+.well-known
