@@ -221,6 +221,23 @@ class RagService:
         ])
         return self._clean_response((prompt | self._get_llm()).invoke(values))
 
+    @staticmethod
+    def _retrieval_fallback(sources: list[dict[str, Any]], question: str, graph_context: str = "") -> str:
+        """Keep case Q&A useful when an optional hosted model is not configured."""
+        lines = ["## Evidence-grounded answer", "", f"The language model is unavailable, so this answer uses retrieved case records for: {question}", ""]
+        if sources:
+            lines.append("### Retrieved records")
+            for index, source in enumerate(sources[:5], start=1):
+                content = str(source.get("content") or "").strip()
+                if content:
+                    lines.append(f"- {content} [{index}]")
+        else:
+            lines.extend(["### Retrieved records", "- No matching evidence records were indexed for this case."])
+        lines.extend(["", "### Investigator caution", "- These records are leads for review, not proof of guilt, intent, or causation."])
+        if graph_context:
+            lines.extend(["", "### Graph context", f"{graph_context}"])
+        return "\n".join(lines)
+
     def summarize_case(self, case_id: str) -> dict[str, Any]:
         # Summary retrieval deliberately uses a balanced evidence mix rather than
         # ordinary semantic top-k, otherwise a generic summary query tends to
@@ -278,11 +295,14 @@ NUMBERED EVIDENCE RECORDS:
 
 Prepare the case summary now. Keep it concise (under 350 words), with no more than 3 bullets per section. Cite the numbered records inline, for example [1] or [3][7]. Complete all five sections before adding detail.
 """
-        answer = self._invoke(system, human, {
-            "case_id": case_id,
-            "graph_context": graph_context or "No graph context available.",
-            "context": context or "No evidence records available.",
-        })
+        try:
+            answer = self._invoke(system, human, {
+                "case_id": case_id,
+                "graph_context": graph_context or "No graph context available.",
+                "context": context or "No evidence records available.",
+            })
+        except RuntimeError:
+            answer = self._retrieval_fallback(sources, "case summary", graph_context)
 
         if not answer:
             answer = "The supplied records could not be summarized."
@@ -295,14 +315,22 @@ Prepare the case summary now. Keep it concise (under 350 words), with no more th
         }
 
     def answer(self, case_id: str, question: str) -> dict[str, Any]:
-        sources = self.vector_store.similarity_search(case_id, question, limit=8)
+        try:
+            sources = self.vector_store.similarity_search(case_id, question, limit=8)
+        except Exception as error:
+            print(f"Case retrieval unavailable, using graph-only context: {error}")
+            sources = []
         sources = self._enrich_sources(sources)
-        graph_context = self._case_graph_context(case_id)
+        try:
+            graph_context = self._case_graph_context(case_id)
+        except Exception as error:
+            print(f"Case graph context unavailable: {error}")
+            graph_context = ""
         analytical_context = self._case_analytical_context(case_id)
 
         if not sources and not graph_context:
             return {
-                "answer": "No indexed case material is available for this case yet.",
+                "answer": self._retrieval_fallback([], question),
                 "sources": [],
                 "case_id": case_id,
             }
@@ -333,12 +361,15 @@ NUMBERED EVIDENCE RECORDS:
 
 Answer the question. Cite the supporting records inline as [1], [2], etc.
 """
-        answer = self._invoke(system, human, {
-            "case_id": case_id,
-            "question": question,
-            "graph_context": graph_context or "No graph context available.",
-            "context": context or "No matching evidence records available.",
-        })
+        try:
+            answer = self._invoke(system, human, {
+                "case_id": case_id,
+                "question": question,
+                "graph_context": graph_context or "No graph context available.",
+                "context": context or "No matching evidence records available.",
+            })
+        except RuntimeError:
+            answer = self._retrieval_fallback(sources, question, graph_context)
         if not answer:
             answer = (
                 f"The case has {len(sources)} retrieved records, but the available material "

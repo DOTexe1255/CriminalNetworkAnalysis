@@ -96,6 +96,14 @@ function iconData(type: string, theme: "light" | "dark" = "light") {
   return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
 }
 
+function avatarData(name: string) {
+  const initials = name.split(/\s+/).filter(Boolean).slice(0, 2).map((part) => part[0]).join("").toUpperCase() || "P";
+  const colors = ["#B7791F", "#2F855A", "#2B6CB0", "#805AD5", "#C05621"];
+  const color = colors[Math.abs([...name].reduce((total, char) => total + char.charCodeAt(0), 0)) % colors.length];
+  const svg = `<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 96 96"><rect width="96" height="96" rx="48" fill="${color}"/><text x="48" y="57" text-anchor="middle" font-family="Arial,sans-serif" font-size="30" font-weight="700" fill="#fff">${initials}</text></svg>`;
+  return `data:image/svg+xml;utf8,${encodeURIComponent(svg)}`;
+}
+
 function normalize(elements: any[]) {
   return elements.map((el) => {
     if (!el?.data) return el;
@@ -322,7 +330,7 @@ function addClasses(cy: Core, entityMode: boolean) {
     const type = rawType.toLowerCase().replace(/[^a-z0-9]+/g, "-");
     const isDarkIcon = node.hasClass("key-person") || node.hasClass("focused");
 
-    node.data("icon", iconData(type, isDarkIcon ? "dark" : "light"));
+    node.data("icon", entityMode && type === "person" ? avatarData(String(node.data("label") || node.id())) : iconData(type, isDarkIcon ? "dark" : "light"));
     node.addClass(`entity-${type}`);
     node.addClass(entityMode ? "entity-icon-node" : "network-node");
   });
@@ -502,6 +510,7 @@ export default function GraphView({
     legend: false,
   });
   const [isFullscreen, setIsFullscreen] = useState(false);
+  const [selectedEntity, setSelectedEntity] = useState<{ type: string; label: string; id: string; lat?: number; lng?: number } | null>(null);
 
   const togglePanel = (panel: "context" | "minimap" | "legend") => {
     setCollapsedPanels((current) => ({ ...current, [panel]: !current[panel] }));
@@ -699,31 +708,9 @@ export default function GraphView({
 
         nodes.slice(0, 3).addClass("key-person");
 
-        // Keep the graph understandable without requiring a click: label the
-        // strongest connector from each detected community, then add a few
-        // globally important people. This keeps labels meaningful without
-        // turning the whole network into a wall of text.
-        const labeledIds = new Set<string>();
-        const strongestByCommunity = new Map<string, NodeSingular>();
-
-        nodes.forEach((node) => {
-          const community = String(
-            node.data("community_id") ?? node.data("communityId") ?? node.data("community") ?? "0"
-          );
-          if (!strongestByCommunity.has(community)) {
-            strongestByCommunity.set(community, node);
-          }
-        });
-
-        strongestByCommunity.forEach((node) => {
-          labeledIds.add(node.id());
-        });
-        nodes.slice(0, 5).forEach((node) => {
-          labeledIds.add(node.id());
-        });
-        cy.nodes().forEach((node) => {
-          if (labeledIds.has(node.id())) node.addClass("labeled");
-        });
+        // Show only the strongest connectors by default; every other name
+        // remains available on hover or after selecting a node.
+        nodes.slice(0, 4).addClass("labeled");
 
         addClasses(cy, false);
         rescaleNetworkNodes(cy);
@@ -872,7 +859,7 @@ export default function GraphView({
                 opacity: 0.8,
                 "target-arrow-shape": "triangle",
                 "target-arrow-color": "#536170",
-                label: "data(label)",
+                label: "",
                 "font-size": 7,
                 color: "#7F8995",
                 "text-background-color": "#0E1319",
@@ -880,7 +867,7 @@ export default function GraphView({
                 "text-background-padding": "2",
               },
             },
-            { selector: "edge.focused", style: { width: 3, "line-color": "#D9A441", "target-arrow-color": "#D9A441", opacity: 1 } },
+            { selector: "edge.focused", style: { width: 3, "line-color": "#D9A441", "target-arrow-color": "#D9A441", opacity: 1, label: "data(label)" } },
             { selector: "edge.edge-communication", style: { "line-style": "dashed" } },
             { selector: "edge.edge-transaction", style: { "line-style": "dashed" } },
             { selector: "node.focused", style: { "border-width": 5, "border-color": "#F0C66B", "z-index": 30, label: "data(label)" } },
@@ -890,14 +877,25 @@ export default function GraphView({
             { selector: "node.hovered", style: { "border-width": 2, "border-color": "#E3E7EC" } },
             { selector: "node.loading-selection", style: { "border-width": 3, "border-color": "#F0C66B", "border-style": "dashed" } },
           ],
-          layout: { name: "cose", animate: false, nodeRepulsion: 11000, idealEdgeLength: 110, gravity: 30 },
+          layout: { name: "concentric", animate: false, concentric: (node: NodeSingular) => node.id() === selectedPersonId ? 2 : 1, levelWidth: () => 1, minNodeSpacing: 92, padding: 110 },
         });
         addClasses(cy, true);
 
         cy.on("tap", "node", async (event) => {
           const node = event.target as NodeSingular;
           const personId = node.data("personId") || (node.data("entityType") === "Person" ? node.id() : null);
-          if (!personId) return;
+          const entityType = String(node.data("entityType") || "Entity");
+          if (!personId) {
+            setSelectedEntity({
+              type: entityType,
+              label: String(node.data("label") || node.id()),
+              id: String(node.id()),
+              lat: typeof node.data("lat") === "number" ? node.data("lat") : undefined,
+              lng: typeof node.data("lng") === "number" ? node.data("lng") : undefined,
+            });
+            return;
+          }
+          setSelectedEntity(null);
           onPersonLoadingRef.current?.(personId);
           node.addClass("loading-selection");
           try {
@@ -1003,8 +1001,8 @@ export default function GraphView({
         aria-label={isFullscreen ? "Exit graph fullscreen" : "Open graph fullscreen"}
         style={{
           position: "absolute",
-          bottom: 16,
-          right: 220,
+          bottom: 18,
+          right: 18,
           zIndex: 80,
           padding: "8px 11px",
           border: "1px solid #303a45",
@@ -1017,6 +1015,17 @@ export default function GraphView({
       >
         {isFullscreen ? "↙ EXIT" : "⛶ FULL SCREEN"}
       </button>
+
+      {selectedEntity && (
+        <div className="entity-action-card" role="dialog" aria-label={`${selectedEntity.type} actions`}>
+          <div className="entity-action-heading"><span>{selectedEntity.type.toUpperCase()}</span><button type="button" onClick={() => setSelectedEntity(null)} aria-label="Close entity actions">×</button></div>
+          <strong>{selectedEntity.label}</strong>
+          <small>{selectedEntity.id}</small>
+          {selectedEntity.type.toLowerCase() === "phone" && <button type="button" className="entity-action" onClick={() => void navigator.clipboard?.writeText(selectedEntity.label)}>{navigator.clipboard ? "COPY PHONE NUMBER" : "PHONE NUMBER"}</button>}
+          {selectedEntity.type.toLowerCase() === "location" && <a className="entity-action" target="_blank" rel="noreferrer" href={selectedEntity.lat != null && selectedEntity.lng != null ? `https://www.google.com/maps/search/?api=1&query=${selectedEntity.lat},${selectedEntity.lng}` : `https://www.google.com/maps/search/?api=1&query=${encodeURIComponent(selectedEntity.label)}`}>OPEN IN GOOGLE MAPS ↗</a>}
+          {selectedEntity.type.toLowerCase() !== "phone" && selectedEntity.type.toLowerCase() !== "location" && <button type="button" className="entity-action" onClick={() => void navigator.clipboard?.writeText(selectedEntity.label)}>COPY VALUE</button>}
+        </div>
+      )}
 
       {loading && (
         <div className="graph-status">

@@ -6,10 +6,11 @@ The frontend is a React 19 and TypeScript investigation console built with Vite.
 
 ```powershell
 npm install
-npm run dev
+$env:VITE_DEV_API_TARGET="http://localhost:9000"
+npm run dev -- --host 0.0.0.0
 ```
 
-The local API is configured in `frontend/.env` with `http://localhost:8000`. Copy `frontend/.env.example` when setting up a fresh checkout. For Docker, Vite is built with `/api`; the frontend normalizes that proxy prefix and Nginx forwards requests to the API container.
+Vite listens on all interfaces at port `5173` and proxies `/api` to `VITE_DEV_API_TARGET`. From another device on the same LAN, open `http://<HOST-IP>:5173`. In Docker, Nginx provides the same `/api` proxy and the API is published at `http://localhost:9000`.
 
 ## Validation
 

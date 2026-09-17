@@ -400,6 +400,12 @@
   background: #10151c;
 }
 
+.trace-graph-wrap:fullscreen {
+  width: 100vw;
+  height: 100vh;
+  background: #10151c;
+}
+
 .graph-fullscreen-btn {
   /* position: absolute; */
   /* right: 14px; */
@@ -420,3 +426,12 @@
   border-color: #d9a441;
   background: #1d252e;
 }
+
+@media (max-width: 720px) {
+  .graph-context { right: 10px; top: 10px; width: min(275px, calc(100% - 20px)); }
+  .graph-mode-toggle { left: 10px; top: 10px; }
+  .graph-mode-toggle button { min-width: 82px; padding: 0 9px; }
+  .graph-legend { left: 10px; bottom: 10px; width: 185px; }
+}
+
+.entity-action-card{position:absolute;left:18px;bottom:68px;z-index:75;width:245px;padding:13px 14px;background:rgba(14,21,29,.97);border:1px solid #3a4652;border-left:2px solid #d9a441;box-shadow:0 14px 32px rgba(0,0,0,.38);display:grid;gap:7px}.entity-action-heading{display:flex;justify-content:space-between;align-items:center}.entity-action-heading span{color:#d9a441;font:600 8px 'IBM Plex Mono',monospace;letter-spacing:.1em}.entity-action-heading button{border:0;background:transparent;color:#8995a1;font-size:18px;line-height:1;cursor:pointer}.entity-action-card strong{color:#eef1f3;font-size:14px}.entity-action-card small{color:#7d8995;font:9px 'IBM Plex Mono',monospace;overflow-wrap:anywhere}.entity-action{display:inline-flex;justify-content:center;align-items:center;margin-top:4px;padding:9px 10px;border:1px solid #6a5122;background:#1a1d1d;color:#e5b95d;text-decoration:none;font:700 9px 'IBM Plex Mono',monospace;cursor:pointer}.entity-action:hover{border-color:#d9a441;background:#24231d;color:#fff1c2}

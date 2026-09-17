@@ -7,6 +7,7 @@ export type Evidence = {
   timestamp?: unknown;
   description?: string;
   source_record_id?: string;
+  related_people?: Array<{ id: string; name: string }>;
 };
 
 type Props = {
@@ -96,6 +97,12 @@ export default function EvidencePanel({
                   </time>
                 </div>
                 <p>{item.description || "No description available."}</p>
+                {!!item.related_people?.length && (
+                  <div className="evidence-people">
+                    <span>INVOLVED PEOPLE</span>
+                    {item.related_people.map((person) => <b key={person.id}>{person.name}</b>)}
+                  </div>
+                )}
                 {item.source_record_id && <small>Source: {item.source_record_id}</small>}
               </button>
             );

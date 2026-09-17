@@ -1,4 +1,5 @@
 import { useCallback, useEffect, useMemo, useState } from "react";
+import ReactMarkdown from "react-markdown";
 import GraphView, { type EdgeDetails } from "./GraphView";
 import FindingsPanel, { humanType, type Finding } from "./FindingsPanel";
 import EntityProfile, { type PersonDetails } from "./EntityProfile";
@@ -15,6 +16,8 @@ const API = API_BASE_URL;
 
 type AnalysisView = "graph" | "timeline" | "map";
 type WorkspaceProps = { initialCaseId?: string; onBack?: () => void };
+type ChatSource = { title?: string; event_date?: string | null; source_record_id?: string | null };
+type ChatMessage = { id: string; role: "user" | "assistant"; text: string; sources?: ChatSource[]; error?: boolean };
 
 export default function InvestigationWorkspace({ initialCaseId = "case_00000", onBack }: WorkspaceProps) {
   const [person, setPerson] = useState<PersonDetails | null>(null);
@@ -25,6 +28,7 @@ export default function InvestigationWorkspace({ initialCaseId = "case_00000", o
   const [briefCollapsed, setBriefCollapsed] = useState(false);
   const [ragCollapsed, setRagCollapsed] = useState(false);
   const [query, setQuery] = useState("");
+  const [chatInput, setChatInput] = useState("");
   const [caseId, setCaseId] = useState(initialCaseId);
   const [profileLoading, setProfileLoading] = useState(false);
   const [evidenceLoading, setEvidenceLoading] = useState(false);
@@ -32,43 +36,66 @@ export default function InvestigationWorkspace({ initialCaseId = "case_00000", o
   const [graphFocusId, setGraphFocusId] = useState<string | undefined>();
   const [hopDistance, setHopDistance] = useState<0 | 1 | 2>(0);
   const [edge, setEdge] = useState<EdgeDetails | null>(null);
-  const [ragAnswer, setRagAnswer] = useState("");
-  const [ragSources, setRagSources] = useState<Array<{ title: string; event_date?: string | null }>>([]);
   const [ragLoading, setRagLoading] = useState(false);
+  const [ragError, setRagError] = useState("");
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
 
-  async function askCase() {
-    if (!query.trim()) return;
+  async function askCase(questionOverride?: string) {
+    const question = (questionOverride || chatInput.trim() || "What are the strongest evidence-backed leads in this case?").trim();
+    if (!question || ragLoading) return;
+    setChatInput("");
     setRagLoading(true);
-    setRagAnswer("");
+    setRagError("");
+    setRagCollapsed(false);
+    const messageId = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    setChatMessages((current) => [...current, { id: `${messageId}-question`, role: "user", text: question }]);
     try {
       const response = await fetch(`${API}/api/rag/query`, {
         method: "POST",
         headers: { "Content-Type": "application/json" },
-        body: JSON.stringify({ case_id: caseId, question: query.trim() }),
+        body: JSON.stringify({ case_id: caseId, question }),
       });
       const data = await response.json();
-      setRagAnswer(response.ok ? data.answer : data.detail || "Case query is unavailable.");
-      setRagSources(response.ok ? data.sources || [] : []);
+      if (!response.ok) {
+        const detail = data.detail || "Case query is unavailable.";
+        setRagError(detail);
+        setChatMessages((current) => [...current, { id: `${messageId}-error`, role: "assistant", text: detail, error: true }]);
+      } else {
+        const answer = data.answer || "The available case records did not produce an answer.";
+        const sources = data.sources || [];
+        setChatMessages((current) => [...current, { id: `${messageId}-answer`, role: "assistant", text: answer, sources }]);
+      }
     } catch {
-      setRagAnswer("Case query is unavailable. Check that the API and Hugging Face token are configured.");
-      setRagSources([]);
+      setRagError("Case query is unavailable. Check that the API is running.");
+      setChatMessages((current) => [...current, { id: `${messageId}-error`, role: "assistant", text: "Case query is unavailable. Check that the API is running.", error: true }]);
     } finally {
       setRagLoading(false);
     }
   }
 
   async function summarizeCase() {
+    if (ragLoading) return;
     setRagLoading(true);
-    setRagAnswer("");
+    setRagError("");
     setQuery("Case summary");
+    setRagCollapsed(false);
+    const messageId = `${Date.now()}-${Math.random().toString(16).slice(2)}`;
+    setChatMessages((current) => [...current, { id: `${messageId}-question`, role: "user", text: "Summarize this case" }]);
     try {
       const response = await fetch(`${API}/api/case/${encodeURIComponent(caseId)}/summary`);
       const data = await response.json();
-      setRagAnswer(response.ok ? data.answer : data.detail || "Case summary is unavailable.");
-      setRagSources(response.ok ? data.sources || [] : []);
+      if (!response.ok) {
+        const detail = data.detail || "Case summary is unavailable.";
+        setRagError(detail);
+        setChatMessages((current) => [...current, { id: `${messageId}-error`, role: "assistant", text: detail, error: true }]);
+      } else {
+        const answer = data.answer || "No case summary was returned.";
+        const sources = data.sources || [];
+        setChatMessages((current) => [...current, { id: `${messageId}-answer`, role: "assistant", text: answer, sources }]);
+      }
     } catch {
-      setRagAnswer("Case summary is unavailable. Check the API and Hugging Face token.");
-      setRagSources([]);
+      setRagError("Case summary is unavailable. Check that the API is running.");
+      setChatMessages((current) => [...current, { id: `${messageId}-error`, role: "assistant", text: "Case summary is unavailable. Check that the API is running.", error: true }]);
     } finally {
       setRagLoading(false);
     }
@@ -120,8 +147,9 @@ export default function InvestigationWorkspace({ initialCaseId = "case_00000", o
     setEdge(null);
     setGraphFocusId(undefined);
     setHopDistance(0);
-    setRagAnswer("");
-    setRagSources([]);
+    setRagError("");
+    setChatInput("");
+    setChatMessages([]);
   }, [caseId]);
 
   const handlePersonSelect = useCallback((nextPerson: PersonDetails) => {
@@ -187,6 +215,7 @@ export default function InvestigationWorkspace({ initialCaseId = "case_00000", o
         caseId={caseId}
         onCaseChange={setCaseId}
         onBack={onBack}
+        asking={ragLoading}
       />
 
       <div className="trace-main">
@@ -278,38 +307,36 @@ export default function InvestigationWorkspace({ initialCaseId = "case_00000", o
             )}
           </section>
 
-          {(ragLoading || ragAnswer) && (
-            <section className={`case-query-result ${ragCollapsed ? "is-collapsed" : ""}`}>
+          <section className={`case-query-result case-chat ${ragCollapsed ? "is-collapsed" : ""}`}>
               <div className="case-query-header">
                 <div>
-                  <div className="eyebrow">CASE QUESTION / {caseId}</div>
+                  <div className="eyebrow">TRACE CASE ASSISTANT / {caseId}</div>
                   {!ragCollapsed && (
-                    <h2>{ragLoading ? "Searching indexed case material..." : "Evidence-grounded answer"}</h2>
+                    <h2>{ragLoading ? "Reviewing indexed case material..." : "Ask this case"}</h2>
                   )}
                 </div>
-                <button
-                  type="button"
-                  className="case-query-collapse-btn"
-                  onClick={() => setRagCollapsed((current) => !current)}
-                  aria-label={ragCollapsed ? "Expand evidence-grounded answer" : "Minimize evidence-grounded answer"}
-                  title={ragCollapsed ? "Expand answer" : "Minimize answer"}
-                >
-                  {ragCollapsed ? "+" : "−"}
-                </button>
+                <div className="case-chat-actions">
+                  {chatMessages.length > 0 && <button type="button" className="chat-clear" onClick={() => setChatMessages([])}>CLEAR</button>}
+                  <button type="button" className="case-query-collapse-btn" onClick={() => setRagCollapsed((current) => !current)} aria-label={ragCollapsed ? "Expand case assistant" : "Minimize case assistant"} title={ragCollapsed ? "Expand assistant" : "Minimize assistant"}>{ragCollapsed ? "+" : "−"}</button>
+                </div>
               </div>
 
               {!ragCollapsed && (
                 <>
-                  {!ragLoading && <p>{ragAnswer}</p>}
-                  {ragSources.length > 0 && (
-                    <small>
-                      Sources: {ragSources.map((source) => `${source.title}${source.event_date ? ` (${source.event_date})` : ""}`).join(" · ")}
-                    </small>
-                  )}
+                  <div className="case-chat-intro">Ask about recorded people, evidence, timelines, relationships, or what still needs verification. Answers stay grounded in this case's indexed records.</div>
+                  <div className="chat-suggestions">
+                    {["What are the strongest evidence-backed leads?", "Which people and records are linked?", "What remains unverified in this case?"] .map((suggestion) => <button key={suggestion} type="button" onClick={() => askCase(suggestion)} disabled={ragLoading}>{suggestion}</button>)}
+                  </div>
+                  <div className="chat-thread" aria-live="polite">
+                    {chatMessages.length === 0 && <div className="chat-empty"><span>READY FOR CASE QUESTIONS</span><b>Start with a suggested question or type your own below.</b></div>}
+                    {chatMessages.map((message) => <div className={`chat-message chat-message-${message.role} ${message.error ? "has-error" : ""}`} key={message.id}><span className="chat-role">{message.role === "user" ? "YOU" : "TRACE AI"}</span>{message.role === "assistant" ? <div className="rag-answer"><ReactMarkdown>{message.text}</ReactMarkdown></div> : <p>{message.text}</p>}{message.sources && message.sources.length > 0 && <div className="chat-sources">{message.sources.map((source, index) => <span key={`${source.title || "record"}-${source.event_date || index}`}>{source.title || "Case record"}{source.event_date ? ` · ${source.event_date}` : ""}{source.source_record_id ? ` · ${source.source_record_id}` : ""}</span>)}</div>}</div>)}
+                    {ragLoading && <div className="chat-message chat-message-assistant chat-thinking"><span className="chat-role">TRACE AI</span><p>Searching the case evidence and relationship context<span className="typing-dots">...</span></p></div>}
+                  </div>
+                  {ragError && !ragLoading && <div className="rag-error-message">{ragError}</div>}
+                  <form className="chat-composer" onSubmit={(event) => { event.preventDefault(); void askCase(chatInput); }}><input value={chatInput} onChange={(event) => setChatInput(event.target.value)} placeholder="Ask a question about this case..." disabled={ragLoading} aria-label="Ask a question about this case" /><button type="submit" disabled={ragLoading || !chatInput.trim()}>{ragLoading ? "SEARCHING" : "SEND"}</button></form>
                 </>
               )}
             </section>
-          )}
 
           <div className="analysis-stage">
             {view === "graph" && (

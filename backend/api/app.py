@@ -1,10 +1,13 @@
 import os
 import json
+import io
 import uuid
 from pathlib import Path
 from typing import Any
-from fastapi import File, FastAPI, HTTPException, UploadFile
+from fastapi import File, FastAPI, Form, HTTPException, UploadFile
 from fastapi.middleware.cors import CORSMiddleware
+from fastapi.staticfiles import StaticFiles
+from fastapi.responses import StreamingResponse
 from neo4j import GraphDatabase
 from dotenv import load_dotenv
 from pydantic import BaseModel, Field
@@ -14,9 +17,11 @@ from psycopg.types.json import Jsonb
 try:
     from services.rag_service import RagService
     from services.vector_store import VectorStore
+    from services.object_storage import storage
 except ImportError:
     from .services.rag_service import RagService
     from .services.vector_store import VectorStore
+    from .services.object_storage import storage
 
 load_dotenv()
 
@@ -29,6 +34,8 @@ if not all([NEO4J_URI, NEO4J_USER, NEO4J_PASSWORD]):
 
 driver = GraphDatabase.driver(NEO4J_URI, auth=(NEO4J_USER, NEO4J_PASSWORD))
 CASE_STORE = Path(__file__).resolve().parent.parent / "mock_cases.json"
+MEDIA_ROOT = Path(__file__).resolve().parent.parent / "uploads"
+MEDIA_ROOT.mkdir(parents=True, exist_ok=True)
 vector_store = VectorStore()
 rag_service = RagService(vector_store)
 
@@ -95,6 +102,7 @@ def read_database_cases() -> list[dict[str, Any]]:
         return []
 
 app = FastAPI(title="Trace — Criminal Network Intelligence API")
+app.mount("/media", StaticFiles(directory=MEDIA_ROOT), name="media")
 
 app.add_middleware(
     CORSMiddleware,
@@ -107,6 +115,11 @@ app.add_middleware(
 @app.on_event("startup")
 def startup():
     try:
+        storage.ensure_bucket()
+        seed_demo_storage()
+    except Exception as error:
+        print(f"Object storage is not ready yet: {error}")
+    try:
         vector_store.initialize()
     except Exception as error:
         # Graph browsing remains available when Postgres is still starting.
@@ -115,6 +128,37 @@ def startup():
 @app.on_event("shutdown")
 def shutdown():
     driver.close()
+
+
+def seed_demo_storage() -> None:
+    """Keep a few synthetic files available for a fresh investigator demo."""
+    demo_files = [
+        ("case_00000/demo/intake-brief.txt", b"TRACE DEMO CASE BRIEF\nOperation Godavari Link\nSynthetic training material for investigator review.\n", "text/plain", "case_00000-intake-brief.txt", "Case brief"),
+        ("case_00000/demo/contact-timeline.csv", b"date,record_type,summary\n2026-08-18,Call Record,Repeated contact window flagged for review\n2026-08-25,Location Event,Device observed near a transport hub\n", "text/csv", "case_00000-contact-timeline.csv", "Timeline export"),
+        ("case_00000/demo/location-map.svg", b"<svg xmlns=\"http://www.w3.org/2000/svg\" width=\"900\" height=\"420\"><rect width=\"900\" height=\"420\" fill=\"#10151c\"/><circle cx=\"450\" cy=\"210\" r=\"82\" fill=\"#d9a441\"/><text x=\"450\" y=\"216\" fill=\"#11161c\" text-anchor=\"middle\" font-family=\"Arial\" font-size=\"24\">SYNTHETIC LOCATION MAP</text></svg>", "image/svg+xml", "case_00000-location-map.svg", "Evidence image"),
+    ]
+    cases = read_mock_cases()
+    case = next((item for item in cases if item.get("id") == "case_00000"), None)
+    documents = case.setdefault("documents", []) if case else []
+    for key, content, content_type, name, category in demo_files:
+        storage.put_bytes(key, content, content_type)
+        if not any(item.get("name") == name for item in documents):
+            documents.append({"name": name, "type": content_type, "size": len(content), "category": category, "description": "Synthetic demo file stored in local object storage.", "url": f"/api/cases/case_00000/files/{key.split('/', 1)[1]}"})
+    if case:
+        write_mock_cases(cases)
+    try:
+        with psycopg.connect(vector_store.database_url) as connection:
+            row = connection.execute("SELECT documents FROM cases WHERE id = %s", ("case_00000",)).fetchone()
+            if row is not None:
+                database_documents = row[0] or []
+                merged = [*database_documents]
+                for document in documents:
+                    if not any(item.get("name") == document.get("name") for item in merged):
+                        merged.append(document)
+                connection.execute("UPDATE cases SET documents = %s WHERE id = %s", (Jsonb(merged), "case_00000"))
+                connection.commit()
+    except psycopg.Error as error:
+        print(f"Could not sync demo file metadata to PostgreSQL: {error}")
 
 
 @app.get("/api/graph")
@@ -290,15 +334,31 @@ def get_finding(finding_id: str):
 def get_finding_evidence(finding_id: str):
     query = """
     MATCH (f:Finding {id: $finding_id})-[:SUPPORTED_BY]->(ev:Evidence)
+    OPTIONAL MATCH (ev)-[:INVOLVES]->(person:Person)
+    WITH ev, collect(DISTINCT {
+        id: person.id,
+        name: coalesce(person.full_name, person.id)
+    }) AS people
     RETURN ev.id AS id,
            ev.evidence_type AS evidence_type,
            ev.timestamp AS timestamp,
            ev.description AS description,
-           ev.source_record_id AS source_record_id
+           ev.source_record_id AS source_record_id,
+           [person IN people WHERE person.id IS NOT NULL] AS related_people
     ORDER BY ev.timestamp DESC
     """
     with driver.session() as session:
-        return [dict(r) for r in session.run(query, finding_id=finding_id)]
+        records = []
+        for row in session.run(query, finding_id=finding_id):
+            item = dict(row)
+            people = item.get("related_people") or []
+            description = item.get("description") or ""
+            for person in people:
+                if person.get("id") and person.get("name"):
+                    description = description.replace(person["id"], person["name"])
+            item["description"] = description
+            records.append(item)
+        return records
 
 
 @app.get("/api/cases")
@@ -440,24 +500,66 @@ def summarize_case(case_id: str):
 
 
 @app.post("/api/cases/{case_id}/documents")
-def upload_case_documents(case_id: str, files: list[UploadFile] = File(...)):
+def upload_case_documents(
+    case_id: str,
+    files: list[UploadFile] = File(...),
+    file_metadata: str = Form("[]"),
+):
+    try:
+        metadata = json.loads(file_metadata)
+    except json.JSONDecodeError as error:
+        raise HTTPException(400, "Invalid file metadata") from error
+
     documents: list[dict[str, Any]] = []
-    for upload in files:
-        if upload.content_type != "application/pdf":
-            continue
-        reader = PdfReader(upload.file)
-        content = "\n".join(page.extract_text() or "" for page in reader.pages).strip()
-        if content:
-            documents.append({
-                "title": upload.filename or "Uploaded PDF",
-                "content": content,
-                "source_type": "pdf",
-            })
+    saved_documents: list[dict[str, Any]] = []
+    for index, upload in enumerate(files):
+        original_name = upload.filename or f"evidence-{index + 1}"
+        safe_name = f"{uuid.uuid4().hex[:10]}_{Path(original_name).name}"
+        content = upload.file.read()
+        storage_key = f"{case_id}/{safe_name}"
+        storage.put_bytes(storage_key, content, upload.content_type or "application/octet-stream")
+        details = metadata[index] if index < len(metadata) and isinstance(metadata[index], dict) else {}
+        record = {
+            "name": original_name,
+            "type": upload.content_type or "application/octet-stream",
+            "size": len(content),
+            "category": details.get("category", "Case file"),
+            "description": details.get("description", ""),
+            "person_name": details.get("person_name", ""),
+            "url": f"/api/cases/{case_id}/files/{safe_name}",
+        }
+        saved_documents.append(record)
+        if upload.content_type == "application/pdf":
+            pdf_text = "\n".join(page.extract_text() or "" for page in PdfReader(io.BytesIO(content)).pages).strip()
+            if pdf_text:
+                documents.append({"title": original_name, "content": pdf_text, "source_type": "pdf"})
+
+    cases = read_mock_cases()
+    case = next((item for item in cases if item.get("id") == case_id), None)
+    if case is not None:
+        existing = [item for item in (case.get("documents") or []) if item.get("name") not in {doc["name"] for doc in saved_documents}]
+        case["documents"] = [*existing, *saved_documents]
+        write_mock_cases(cases)
     try:
         indexed = vector_store.add_documents(case_id, documents)
     except Exception as error:
         raise HTTPException(500, f"Document indexing failed: {error}") from error
-    return {"case_id": case_id, "indexed_documents": indexed}
+    return {"case_id": case_id, "indexed_documents": indexed, "documents": saved_documents}
+
+
+@app.get("/api/cases/{case_id}/files/{file_path:path}")
+def download_case_file(case_id: str, file_path: str):
+    clean_path = "/".join(part for part in file_path.split("/") if part not in {"", ".", ".."})
+    key = f"{case_id}/{clean_path}"
+    try:
+        stored = storage.get_object(key)
+    except KeyError as error:
+        raise HTTPException(404, "Case file not found") from error
+    return StreamingResponse(
+        stored["Body"],
+        media_type=stored.get("ContentType", "application/octet-stream"),
+        headers={"Content-Disposition": f'inline; filename="{Path(clean_path).name}"'},
+    )
 
 
 @app.get("/api/case/{case_id}")
@@ -494,18 +596,31 @@ def get_person_evidence(person_id: str, limit: int = 30):
     query = """
     MATCH (p:Person {id: $person_id})<-[:INVOLVES]-(ev:Evidence)
     OPTIONAL MATCH (f:Finding)-[:SUPPORTED_BY]->(ev)
+    OPTIONAL MATCH (ev)-[:INVOLVES]->(related:Person)
     RETURN DISTINCT
            ev.id AS id,
            ev.evidence_type AS evidence_type,
            ev.timestamp AS timestamp,
            ev.description AS description,
            ev.source_record_id AS source_record_id,
-           collect(DISTINCT f.title)[0] AS finding_title
+           collect(DISTINCT f.title)[0] AS finding_title,
+           collect(DISTINCT {id: related.id, name: related.full_name}) AS people
     ORDER BY ev.timestamp DESC
     LIMIT $limit
     """
     with driver.session() as session:
-        return [dict(r) for r in session.run(query, person_id=person_id, limit=limit)]
+        records = []
+        for row in session.run(query, person_id=person_id, limit=limit):
+            item = dict(row)
+            people = [person for person in (item.pop("people", []) or []) if person and person.get("id")]
+            description = item.get("description") or ""
+            for person in people:
+                if person.get("name"):
+                    description = description.replace(person["id"], person["name"])
+            item["description"] = description
+            item["people"] = [person["name"] for person in people if person.get("name")]
+            records.append(item)
+        return records
 
 
 @app.get("/api/person/{person_id}/activity")

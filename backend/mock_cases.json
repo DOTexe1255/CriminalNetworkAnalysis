@@ -1,34 +1,53 @@
 [
   {
     "id": "case_00000",
-    "name": "Operation Trinetra",
-    "description": "Fictional Maharashtra-based network investigation linking encrypted communications, shell firms and logistics handlers.",
+    "name": "Operation Godavari Link",
+    "case_number": "TRC-2026-0147",
+    "description": "A fictional narcotics-network inquiry following courier movements between Hyderabad, Nagpur, and Raipur.",
     "status": "Active",
     "priority": "High",
-    "lead": "Maharashtra Cyber Cell",
-    "created_at": "2026-09-01",
-    "person_count": 42,
-    "finding_count": 8,
-    "documents": [
-      {"name": "trinetra-case-brief.pdf", "type": "application/pdf", "size": 248000}
-    ],
-    "evidence": [
-      {"type": "Communication", "description": "Recurring contact cluster between Mumbai and Pune phone groups during late-night windows.", "source": "CDR-MH-014"}
-    ]
+    "lead": "Inspector Kavita Deshmukh",
+    "created_at": "2026-08-18",
+    "person_count": 7,
+    "finding_count": 4,
+    "lead_details": [{"name": "Inspector Kavita Deshmukh", "unit": "State Intelligence Coordination Desk", "role": "Case Lead"}],
+    "narratives": [{"title": "Initial intake", "date": "2026-08-18", "text": "Source material identifies Ravi Prakash Yadav as a person requiring verification and places Meera Nair in the same contact window."}],
+    "evidence": [{"id": "ev_00000_call", "type": "Call Record", "date": "2026-08-18", "description": "Call-detail review shows repeated contact between Ravi Prakash Yadav and Meera Nair during the relevant window.", "source": "CDR-TEL-0147"}, {"id": "ev_00000_location", "type": "Location Event", "date": "2026-08-25", "description": "A device associated with Ravi Prakash Yadav was recorded near a location also visited by Meera Nair.", "source": "LOC-RAI-22"}],
+    "documents": [{"name": "case_00000-intake-brief.pdf", "type": "application/pdf", "size": 184000, "category": "Case document", "description": "Initial intake brief and source chronology."}, {"name": "case_00000-timeline.csv", "type": "text/csv", "size": 9200, "category": "Timeline export", "description": "Normalized contact and location timeline."}],
+    "document": "Operation Godavari Link is synthetic training data. Named individuals are fictional placeholders for a realistic demonstration and are not allegations about real people."
   },
   {
     "id": "case_00001",
-    "name": "Project Kala Dhan",
-    "description": "Fictional financial investigation tracing layered transfers through mule accounts and freight vehicles across Delhi NCR.",
+    "name": "Project Neelam Ledger",
+    "case_number": "TRC-2026-0152",
+    "description": "A fictional financial investigation into layered IMPS transfers, shell vendors, and a warehouse account in Gurugram.",
+    "status": "Active",
+    "priority": "High",
+    "lead": "Deputy Superintendent Arjun Malhotra",
+    "created_at": "2026-08-23",
+    "person_count": 5,
+    "finding_count": 3,
+    "lead_details": [{"name": "Deputy Superintendent Arjun Malhotra", "unit": "Financial Intelligence Coordination Desk", "role": "Case Lead"}],
+    "narratives": [{"title": "Bank review", "date": "2026-08-23", "text": "Sanjay Kumar Bansal and Farah Siddiqui appear in separate records connected to a vendor payment chain requiring source verification."}],
+    "evidence": [{"id": "ev_00001_finance", "type": "Financial Record", "date": "2026-08-23", "description": "A sequence of IMPS transfers moved through three accounts before a cash withdrawal in Gurugram.", "source": "FIU-IMPS-0152"}, {"id": "ev_00001_document", "type": "Document", "date": "2026-08-29", "description": "Invoice records list a common warehouse address across two vendors.", "source": "DOC-GGN-08"}],
+    "documents": [{"name": "case_00001-bank-review.pdf", "type": "application/pdf", "size": 212000, "category": "Financial record", "description": "Account statement extracts for review."}],
+    "document": "Project Neelam Ledger is synthetic training data. Named individuals are fictional placeholders for a realistic demonstration and are not allegations about real people."
+  },
+  {
+    "id": "case_00002",
+    "name": "Case Monsoon Relay",
+    "case_number": "TRC-2026-0161",
+    "description": "A fictional communications inquiry examining recurring late-night calls and shared travel locations around Pune and Mumbai.",
     "status": "Review",
     "priority": "Medium",
-    "lead": "Financial Intelligence Unit",
+    "lead": "Inspector Ananya Iyer",
     "created_at": "2026-08-28",
-    "person_count": 18,
-    "finding_count": 4,
-    "documents": [],
-    "evidence": [
-      {"type": "Transaction", "description": "Repeated IMPS transfers across three account clusters followed by cash withdrawals in Noida.", "source": "FIU-IMPS-07"}
-    ]
+    "person_count": 6,
+    "finding_count": 3,
+    "lead_details": [{"name": "Inspector Ananya Iyer", "unit": "State Intelligence Coordination Desk", "role": "Case Lead"}],
+    "narratives": [{"title": "Contact pattern", "date": "2026-08-28", "text": "Nikhil Ramesh Patil and Ayesha Khan recur in a late-night communication window across two travel corridors."}],
+    "evidence": [{"id": "ev_00002_call", "type": "Call Record", "date": "2026-08-28", "description": "Repeated calls were recorded between two linked phone records during the active review window.", "source": "CDR-MH-0161"}, {"id": "ev_00002_location", "type": "Location Event", "date": "2026-09-02", "description": "Two devices were observed near the same transport hub on separate dates.", "source": "LOC-PN-41"}],
+    "documents": [{"name": "case_00002-contact-map.png", "type": "image/png", "size": 145000, "category": "Evidence image", "description": "Synthetic contact-window map for the case briefing."}, {"name": "case_00002-audio-log.mp3", "type": "audio/mpeg", "size": 420000, "category": "Audio record", "description": "Sample audio record placeholder for the investigation timeline."}],
+    "document": "Case Monsoon Relay is synthetic training data. Named individuals are fictional placeholders for a realistic demonstration and are not allegations about real people."
   }
 ]
