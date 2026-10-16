@@ -54,5 +54,6 @@ Vite listens on all interfaces and proxies `/api` to the backend. Keep `VITE_API
 - [RAG and vector search](docs/rag.md)
 - [Deployment](docs/deployment.md)
 - [Development workflow](docs/development.md)
+- 
 
 Synthetic records are for development and demonstrations only. Investigation findings are structural observations and must not be treated as conclusions of guilt.
